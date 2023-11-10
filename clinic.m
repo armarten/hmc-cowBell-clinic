@@ -4,7 +4,7 @@
 clear;
 clf;
 
-file_name = '2023_11_09__17_59_18__100_hz__1000_n__cal';
+file_name = '2023_11_09__19_15_26__100_hz__10000_n__low_range';
 file_location = append('Results/',file_name,'.csv');
 rawdata = readmatrix(file_location);
 rdtbl = readtable(file_location);
@@ -78,7 +78,7 @@ hold off;
 % Figlist should be a list of figure numbers. These figures will be saved
 % as .mat and .png files to the folder plot_figs. Leave figlist = [] to not
 % save any figures.
-figlist = [2 4 10 20 21];
+figlist = [];
 
 save_plots(figlist, file_name)
 
@@ -91,8 +91,6 @@ function save_plots(figlist, file_name)
             saveas(fig, fig_file_name, 'fig')
         end  
     end
-
-
 end
 
 
