@@ -11,7 +11,7 @@ slm_conversion_factor = 1;
 %% Get data from file
 
 % **** Paste in file name ****
-file_name = '2023_11_09__19_14_35__100_hz__10000_n__low_range';
+file_name = 'flow_run1';
 % .csv file is in the Results folder
 file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
@@ -98,10 +98,12 @@ figure(20)
 plot(rdtbl, "time_ms", "sfm3300")
 hold on;
 plot(rdtbl, "time_ms", "opfs_flow_scaled")
+plot(rdtbl.time_ms, rdtbl.sfm3300 - rdtbl.opfs_flow_scaled)
 ylabel("Volumetric Flow Rate (slm)")
 xlabel("Time (ms)")
-legend("SFM3300", "OPFS (scaled)","Location","northwest")
+legend("SFM3300", "OPFS (scaled)","Difference", "Location","northwest")
 title("Volumetric Flow from SFM3300 and calibrated Orifice Plate Flow Sensor")
+hold off;
 
 
 
@@ -109,7 +111,7 @@ title("Volumetric Flow from SFM3300 and calibrated Orifice Plate Flow Sensor")
 % Figlist should be a list of figure numbers. These figures will be saved
 % as .mat and .png files to the folder plot_figs. Leave figlist = [] to not
 % save any figures.
-figlist = [];
+figlist = [10 20];
 
 save_plots(figlist, file_name)
 
