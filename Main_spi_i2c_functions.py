@@ -60,7 +60,7 @@ mcp = Adafruit_MCP3008.MCP3008(spi=SPI.SpiDev(SPI_PORT, SPI_DEVICE))
 # Main program loop.
 # Headers for .csv
 # print("time_ms , temp_0 , temp_1 , temp_0-1 , diff_p , abs_p , sfm3300")
-headers = ["time_ms" , "temp_0" , "temp_1" , "temp_0-1" , "diff_p" , "abs_p" , "sfm3300"]
+headers = ["time_ms" , "temp_0" , "temp_1" , "temp_0_1" , "diff_p" , "abs_p" , "sfm3300"]
 print(headers)
 start_time = time.time()
 
@@ -192,11 +192,11 @@ if __name__ == "__main__":
     ''' Runs first. Input parameters for run and file name
     '''
     # Set number of measurements to take
-    n = 1000
+    n = 10000
     # Set sample rate
     samp_rate = 100
     # Add notes to file name
-    name_note = 'cal'
+    name_note = 'low_range'
     # Create file and output file name for main()
     file_name = make_timestamp_csv(name_note, samp_rate, n)
 
