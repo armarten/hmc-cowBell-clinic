@@ -4,14 +4,14 @@
 close all hidden;
 clear;
 
-%% Set up varaibles
+%% Set up variables
 V_S = 5; % Supply voltage
 slm_conversion_factor = 1;
 
 %% Get data from file
 
 % **** Paste in file name ****
-file_name = 'flow_run1';
+file_name = '2023_11_09__19_12_06__100_hz__10000_n__low_range';
 % .csv file is in the Results folder
 file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
@@ -37,15 +37,18 @@ rdtbl_zeros.abs_p = ((rdtbl_zeros.abs_p / V_S) - 0.04) / 0.0012858;
 diffp_offset = mean(rdtbl_zeros.diff_p);
 % diffp_offset = 0;
 
-
 %% Convert temp and pressure sensor mV to V, invert diff_p
-% Invert diff_p because sensor connections are probably switched
-rdtbl.diff_p = rdtbl.diff_p / -1000;
+rdtbl.diff_p = rdtbl.diff_p / 1000;
 rdtbl.abs_p = rdtbl.abs_p / 1000;
 rdtbl.temp_0 = rdtbl.temp_0 / 1000;
 rdtbl.temp_1 = rdtbl.temp_1 / 1000;
 rdtbl.temp_0_1 = rdtbl.temp_0_1 / 1000;
 
+% Save diff_p V values for op amp calculation
+diff_p_V = rdtbl.diff_p;
+
+% Invert diff_p because sensor connections are probably switched
+rdtbl.diff_p = rdtbl.diff_p * -1;
 %% Convert raw pressure sensor voltages to kPa and then to Pa (equations and constants from data sheets)
     % Differential, MPX5010DP, https://www.nxp.com/docs/en/data-sheet/MPX5010.pdf
     % Absolute, MPX5700ASX, https://www.nxp.com/docs/en/data-sheet/MPX5700.pdf
@@ -76,13 +79,37 @@ opfs_flow_nonzero = rdtbl.opfs_flow_unscaled(sfm3300_nonzero_check);
 
 opfs_coeff = mean(sfm_nonzero ./ opfs_flow_nonzero);
 
+
+rdtbl.opfs_flow_scaled = rdtbl.opfs_flow_unscaled * opfs_coeff;
+
+
+%% Op Amp calculation, see https://www.desmos.com/calculator/8w1mxwllbe for further plotting
+
+% figure(30)
+% plot(rdtbl.opfs_flow_scaled, diff_p_V)
+% hold on;
+% xlabel("Q, slm")
+% ylabel("V")
+b = 0.04;
+m = 0.09;
+% V_out = ( (rdtbl.opfs_flow_scaled./opfs_coeff).^2 ./ V_S - b)./(m);
+% V_out = -1* ( ( (rdtbl.opfs_flow_scaled./opfs_coeff).^2.*m*1000) + b) * V_S;
+% V_out = -1*(((-1*(rdtbl.opfs_flow_scaled./opfs_coeff).^2 .* 1/1000) + diffp_offset)*m+b)*V_S;
+% plot(rdtbl.opfs_flow_scaled, V_out)
+% legend("actual", "calculated")
+% hold off;
+
+extrapolating_Q = 100;
+V_out = -1*(((-1*(extrapolating_Q/opfs_coeff)^2 * 1/1000) + diffp_offset)*m+b)*V_S;
+
+
 %% To compare SFM3300 value and OPFS value with out a scaling factor, plot them on 2 y axes
 
 
 figure(10)
 yyaxis("left")
 plot(rdtbl, "time_ms", "sfm3300")
-ylim([0-0.05*max(rdtbl.sfm3300) 1.05*max(rdtbl.sfm3300) ])
+ylim( [ 0-0.05*max(rdtbl.sfm3300) 1.05*max(rdtbl.sfm3300) ])
 ylabel("SFM3300 (slm)")
 yyaxis("right")
 plot(rdtbl, "time_ms", "opfs_flow_unscaled")
@@ -91,8 +118,6 @@ ylabel("OPFS (sqrt(Pa))")
 legend("SFM3300", "OPFS", "Location", "northwest")
 title("Volumetric Flow from SFM3300 and Orifice Plate Flow Sensor")
 
-
-rdtbl.opfs_flow_scaled = rdtbl.opfs_flow_unscaled * opfs_coeff;
 
 figure(20)
 plot(rdtbl, "time_ms", "sfm3300")
@@ -107,11 +132,12 @@ hold off;
 
 
 
+
 %% Save figures to plot_figs
 % Figlist should be a list of figure numbers. These figures will be saved
 % as .mat and .png files to the folder plot_figs. Leave figlist = [] to not
 % save any figures.
-figlist = [10 20];
+figlist = [];
 
 save_plots(figlist, file_name)
 
@@ -125,6 +151,7 @@ function save_plots(figlist, file_name)
         end  
     end
 end
+
 
 
 
