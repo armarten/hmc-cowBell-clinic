@@ -17,6 +17,50 @@ file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
 rdtbl = readtable(file_location);
 
+
+%% Find actual sample rate
+
+% Filter time to only values under 1000 ms (1 s)
+sr_check = abs(rdtbl.time_ms) <= 1000;
+sr_check_array = rdtbl.time_ms(sr_check);
+% Check size of that array (samples / second)
+sr_actual = height(sr_check_array);
+
+% Check average time between samples
+sr_diff = diff(rdtbl.time_ms);
+mean_samp_per = mean(sr_diff);
+max_samp_per = max(sr_diff);
+min_samp_per = min(sr_diff);
+% figure(34)
+% plot(sr_diff)
+% title("Sampling Periods of OPFS Test")
+% xlabel("Sample")
+% ylabel("Sampling Period (s)")
+
+sr_mean = 1 / (min_samp_per/1000);
+
+%% Implement Butterworth filter
+nyquist = sr_mean / 2;
+cutoff_freq = nyquist*0.1;
+% Butterworth filter order
+n = 6;
+
+[b, a] = butter(n, cutoff_freq/nyquist);
+
+% freqz(b, a, [], sr_mean)
+
+figure(37)
+plot(rdtbl.time_ms, rdtbl.diff_p, 'y')
+hold on;
+
+% filtfilt() does forward-backward filtering to remove lag https://dsp.stackexchange.com/questions/26299/zero-lag-butterworth-filtering
+butter_pres = filtfilt(b,a,rdtbl.diff_p);
+
+plot(rdtbl.time_ms, butter_pres, 'b')
+legend("original", "filtered")
+% pass;
+
+
 %% Create offset for differential pressure values based on background_zeros file
 % Paste in file name with the note "background_zeros"
 file_name_zeros = '2023_11_09__19_07_20__100_hz__1000_n__background_zeros';
@@ -139,7 +183,8 @@ hold off;
 % save any figures.
 figlist = [];
 
-save_plots(figlist, file_name)
+name_note = "__butterworth_demo";
+save_plots(figlist, append(file_name, name_note))
 
 function save_plots(figlist, file_name)
     if isempty(figlist)

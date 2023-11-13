@@ -17,6 +17,47 @@ file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
 rdtbl = readtable(file_location);
 
+
+%% Find actual sample rate
+
+% Filter time to only values under 1000 ms (1 s)
+sr_check = abs(rdtbl.time_ms) <= 1000;
+sr_check_array = rdtbl.time_ms(sr_check);
+% Check size of that array (samples / second)
+sr_actual = height(sr_check_array);
+
+% Check average time between samples
+sr_diff = diff(rdtbl.time_ms);
+mean_samp_per = mean(sr_diff);
+max_samp_per = max(sr_diff);
+min_samp_per = min(sr_diff);
+% figure(34)
+% plot(sr_diff)
+% title("Sampling Periods of OPFS Test")
+% xlabel("Sample")
+% ylabel("Sampling Period (s)")
+
+sr_mean = 1 / min_samp_per;
+
+%% Implement Butterworth filter
+nyquist = sr_mean / 2;
+cutoff_freq = nyquist*0.9;
+% Butterworth filter order
+n = 7;
+
+[b, a] = butter(n, cutoff_freq/nyquist);
+
+freqz(b, a, [], )
+
+figure(36)
+plot(rdtbl.time_ms, rdtbl.diff_p)
+hold on;
+butter_pres = filter(b,a,rdtbl.diff_p);
+plot(rdtbl.time_ms, butter_pres)
+legend("original", "filtered")
+pass;
+
+
 %% Create offset for differential pressure values based on background_zeros file
 % Paste in file name with the note "background_zeros"
 file_name_zeros = '2023_11_09__19_07_20__100_hz__1000_n__background_zeros';
@@ -38,8 +79,7 @@ diffp_offset = mean(rdtbl_zeros.diff_p);
 % diffp_offset = 0;
 
 %% Convert temp and pressure sensor mV to V, invert diff_p
-% Invert diff_p because sensor connections are probably switched
-rdtbl.diff_p = rdtbl.diff_p / -1000;
+rdtbl.diff_p = rdtbl.diff_p / 1000;
 rdtbl.abs_p = rdtbl.abs_p / 1000;
 rdtbl.temp_0 = rdtbl.temp_0 / 1000;
 rdtbl.temp_1 = rdtbl.temp_1 / 1000;
@@ -48,6 +88,8 @@ rdtbl.temp_0_1 = rdtbl.temp_0_1 / 1000;
 % Save diff_p V values for op amp calculation
 diff_p_V = rdtbl.diff_p;
 
+% Invert diff_p because sensor connections are probably switched
+rdtbl.diff_p = rdtbl.diff_p * -1;
 %% Convert raw pressure sensor voltages to kPa and then to Pa (equations and constants from data sheets)
     % Differential, MPX5010DP, https://www.nxp.com/docs/en/data-sheet/MPX5010.pdf
     % Absolute, MPX5700ASX, https://www.nxp.com/docs/en/data-sheet/MPX5700.pdf
@@ -82,20 +124,25 @@ opfs_coeff = mean(sfm_nonzero ./ opfs_flow_nonzero);
 rdtbl.opfs_flow_scaled = rdtbl.opfs_flow_unscaled * opfs_coeff;
 
 
-%% Op Amp calculation
+%% Op Amp calculation, see https://www.desmos.com/calculator/8w1mxwllbe for further plotting
 
-figure(30)
-plot(rdtbl.opfs_flow_scaled, diff_p_V)
-hold on;
-xlabel("Q, slm")
-ylabel("V")
+% figure(30)
+% plot(rdtbl.opfs_flow_scaled, diff_p_V)
+% hold on;
+% xlabel("Q, slm")
+% ylabel("V")
 b = 0.04;
 m = 0.09;
 % V_out = ( (rdtbl.opfs_flow_scaled./opfs_coeff).^2 ./ V_S - b)./(m);
-V_out = ( ( ( rdtbl.opfs_flow_scaled./opfs_coeff).^2 *m)
-plot(rdtbl.opfs_flow_scaled, V_out)
-legend("actual", "calculated")
-hold off;
+% V_out = -1* ( ( (rdtbl.opfs_flow_scaled./opfs_coeff).^2.*m*1000) + b) * V_S;
+% V_out = -1*(((-1*(rdtbl.opfs_flow_scaled./opfs_coeff).^2 .* 1/1000) + diffp_offset)*m+b)*V_S;
+% plot(rdtbl.opfs_flow_scaled, V_out)
+% legend("actual", "calculated")
+% hold off;
+
+extrapolating_Q = 100;
+V_out = -1*(((-1*(extrapolating_Q/opfs_coeff)^2 * 1/1000) + diffp_offset)*m+b)*V_S;
+
 
 %% To compare SFM3300 value and OPFS value with out a scaling factor, plot them on 2 y axes
 
@@ -103,7 +150,7 @@ hold off;
 figure(10)
 yyaxis("left")
 plot(rdtbl, "time_ms", "sfm3300")
-ylim([0-0.05*max(rdtbl.sfm3300) 1.05*max(rdtbl.sfm3300) ])
+ylim( [ 0-0.05*max(rdtbl.sfm3300) 1.05*max(rdtbl.sfm3300) ])
 ylabel("SFM3300 (slm)")
 yyaxis("right")
 plot(rdtbl, "time_ms", "opfs_flow_unscaled")
