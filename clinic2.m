@@ -11,7 +11,7 @@ slm_conversion_factor = 1;
 %% Get data from file
 
 % **** Paste in file name ****
-file_name = '2023_11_09__19_12_06__100_hz__10000_n__low_range';
+file_name = 'flow_run1';
 % .csv file is in the Results folder
 file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
