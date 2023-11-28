@@ -29,6 +29,9 @@ import csv
 import Adafruit_GPIO.SPI as SPI
 import Adafruit_MCP3008
 
+# Import GPIO drivers for Stepper Motor
+import RPi.GPIO as GPIO
+
 # Import libraries for I2C communication
 from fcntl import ioctl
 from struct import unpack
@@ -52,6 +55,33 @@ SPI_PORT   = 0
 SPI_DEVICE = 0
 mcp = Adafruit_MCP3008.MCP3008(spi=SPI.SpiDev(SPI_PORT, SPI_DEVICE))
   
+# GPIO Configuration for Stepper Motor
+PUL = 12
+DIR = 16
+
+# Setup pin layout on PI
+GPIO.setmode(GPIO.BOARD)
+
+# Establish Pins in software
+GPIO.setup(DIR, GPIO.OUT)
+GPIO.setup(PUL, GPIO.OUT)
+
+# 0/1 used to signify clockwise or counterclockwise.
+CW = 1
+CCW = 0
+
+# Set the first direction you want it to spin
+GPIO.output(DIR, CW)
+
+# Control stepper motor rotation
+steps = 200  # Set the number of rotation steps
+delay = 0.01  # set delay
+for i in range(steps):
+      GPIO.output(PUL, GPIO.HIGH)
+      time.sleep(delay)
+      GPIO.output(PUL, GPIO.LOW)
+      time.sleep(delay)
+
 
 # print('Reading MCP3008 values, press Ctrl-C to quit...')
 # Print nice channel column headers.
@@ -203,3 +233,5 @@ if __name__ == "__main__":
     # Take measurements and add to file
     main(n, file_name, samp_rate)
     
+# Clean up GPIO and exit
+GPIO.cleanup()
