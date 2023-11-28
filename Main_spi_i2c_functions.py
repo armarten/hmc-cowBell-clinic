@@ -92,7 +92,6 @@ for i in range(steps):
 # print("time_ms , temp_0 , temp_1 , temp_0-1 , diff_p , abs_p , sfm3300")
 headers = ["time_ms" , "temp_0" , "temp_1" , "temp_0_1" , "diff_p" , "abs_p" , "sfm3300"]
 print(headers)
-start_time = time.time()
 
 def sfm3300_I2C():
     ''' Communicate with and read outputs from the SFM3300 Volumetric Flow Sensor over I2C protocol.
@@ -160,40 +159,45 @@ def main(n, file_name, samp_rate):
 	Loops n times, storing data in file_name.csv
 	Prints outputs
     '''
-    # Initiate sample numbering
-    j = 0
     
     # Create writable file_name.csv and add header
     with open('Results/'+file_name, 'w', newline='') as file:
-	    writer = csv.writer(file)
-	    field = headers
-	    writer.writerow(field)
-	    
-	    # Take n measurements
-	    while(j < n):
-		    # Record elapsed time as the difference between starting and current epoch time, *1000 for milliseconds
-		    time_elapsed_ms = round((time.time()-start_time)*1000,2)
+        writer = csv.writer(file)
+        field = headers
+        writer.writerow(field)
 
-		    # Get current flow rate from SFM3300 through I2C
-		    sfm3300_flow_rate = sfm3300_I2C()
+        # Initiate sample numbering
+        j = 0
+        # Initialize time for sample timing
+        start_time = time.time()
 
-		    # Get pressure and temperature sensor values from MCP3008 ADC
-		    values = mcp3008_SPI()
+        # Take n measurements
+        while(j < n):
+            if((start_time + (1/samp_rate) * j) == time.time()):
 
-		    # Add flow rate measurement to values for printing
-		    values[8] = sfm3300_flow_rate
+                # Record elapsed time as the difference between starting and current epoch time, *1000 for milliseconds
+                time_elapsed_ms = round((time.time()-start_time)*1000,2)
 
-		    # Print the ADC values.
-		    # print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} |{8:>7} |'.format(*values))
-		    # Print for .csv
-		    
-		    # Create row to add to file_name.csv
-		    output_csv = [time_elapsed_ms, values[0], values[1], values[0]-values[1], values[2], values[3], sfm3300_flow_rate]
-		    # print(time_elapsed_ms, ",", values[0], ",", values[1], ",",  values[0]-values[1], ",", values[2], ",",  values[3], ",",  sfm3300_flow_rate)
-		    print(j, output_csv)
-		    writer.writerow(output_csv)
-		    j = j+1
-		    time.sleep(1/samp_rate)
+                # Get current flow rate from SFM3300 through I2C
+                sfm3300_flow_rate = sfm3300_I2C()
+
+                # Get pressure and temperature sensor values from MCP3008 ADC
+                values = mcp3008_SPI()
+
+                # Add flow rate measurement to values for printing
+                values[8] = sfm3300_flow_rate
+
+                # Print the ADC values.
+                # print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} |{8:>7} |'.format(*values))
+                # Print for .csv
+
+                # Create row to add to file_name.csv
+                output_csv = [time_elapsed_ms, values[0], values[1], values[0]-values[1], values[2], values[3], sfm3300_flow_rate]
+                # print(time_elapsed_ms, ",", values[0], ",", values[1], ",",  values[0]-values[1], ",", values[2], ",",  values[3], ",",  sfm3300_flow_rate)
+                print(j, output_csv)
+                writer.writerow(output_csv)
+                j = j+1
+                # time.sleep(1/samp_rate)
     
     
 def make_timestamp_csv(name_note, samp_rate, n):
