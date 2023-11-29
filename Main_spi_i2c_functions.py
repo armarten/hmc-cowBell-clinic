@@ -60,7 +60,7 @@ PUL = 12
 DIR = 16
 
 # Setup pin layout on PI
-GPIO.setmode(GPIO.BOARD)
+# GPIO.setmode(GPIO.BOARD)
 
 # Establish Pins in software
 GPIO.setup(DIR, GPIO.OUT)
@@ -169,35 +169,53 @@ def main(n, file_name, samp_rate):
         # Initiate sample numbering
         j = 0
         # Initialize time for sample timing
-        start_time = time.time()
+        start_time = time.time() + 3
+	# time_now = round(time.time(),2)
 
         # Take n measurements
         while(j < n):
-            if((start_time + (1/samp_rate) * j) == time.time()):
+	    
+	    # Get current time, rounded to 2 decimal points
+            time_now = round(time.time(),2)
+	    # Get timestamp of next sample to compare with current time
+            check_time = round(start_time + (1/samp_rate) * j,2)
+	    	    
+            while(check_time != time_now):
+                # print(check_time, time_now, "nope")
+                time_now = round(time.time(),2)
+                check_time = round(start_time + (1/samp_rate) * j,2)
+            # print("IN!", j)
+            j = j + 1
+            # continue
 
-                # Record elapsed time as the difference between starting and current epoch time, *1000 for milliseconds
-                time_elapsed_ms = round((time.time()-start_time)*1000,2)
+	    # Record elapsed time as the difference between starting and current epoch time, *1000 for milliseconds
+            time_elapsed_ms = round((time.time()-start_time)*1000,2)
 
-                # Get current flow rate from SFM3300 through I2C
+	    # Get current flow rate from SFM3300 through I2C
+	    # NEW 2023-11-28
+            try:
                 sfm3300_flow_rate = sfm3300_I2C()
+            except:
+                print("Something went wrong")
+                continue
 
-                # Get pressure and temperature sensor values from MCP3008 ADC
-                values = mcp3008_SPI()
+	    # Get pressure and temperature sensor values from MCP3008 ADC
+	    
+            values = mcp3008_SPI()
 
-                # Add flow rate measurement to values for printing
-                values[8] = sfm3300_flow_rate
+	    # Add flow rate measurement to values for printing
+            values[8] = sfm3300_flow_rate
 
-                # Print the ADC values.
-                # print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} |{8:>7} |'.format(*values))
-                # Print for .csv
+	    # Print the ADC values.
+	    # print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} |{8:>7} |'.format(*values))
+	    # Print for .csv
 
-                # Create row to add to file_name.csv
-                output_csv = [time_elapsed_ms, values[0], values[1], values[0]-values[1], values[2], values[3], sfm3300_flow_rate]
-                # print(time_elapsed_ms, ",", values[0], ",", values[1], ",",  values[0]-values[1], ",", values[2], ",",  values[3], ",",  sfm3300_flow_rate)
-                print(j, output_csv)
-                writer.writerow(output_csv)
-                j = j+1
-                # time.sleep(1/samp_rate)
+	    # Create row to add to file_name.csv
+            output_csv = [time_elapsed_ms, values[0], values[1], values[0]-values[1], values[2], values[3], sfm3300_flow_rate]
+	    # print(time_elapsed_ms, ",", values[0], ",", values[1], ",",  values[0]-values[1], ",", values[2], ",",  values[3], ",",  sfm3300_flow_rate)
+            print(j, output_csv)
+            writer.writerow(output_csv)
+	    # time.sleep(1/samp_rate)
     
     
 def make_timestamp_csv(name_note, samp_rate, n):
@@ -226,11 +244,11 @@ if __name__ == "__main__":
     ''' Runs first. Input parameters for run and file name
     '''
     # Set number of measurements to take
-    n = 10000
+    n = 100
     # Set sample rate
     samp_rate = 100
     # Add notes to file name
-    name_note = 'low_range'
+    name_note = 'samp_rate_check'
     # Create file and output file name for main()
     file_name = make_timestamp_csv(name_note, samp_rate, n)
 
