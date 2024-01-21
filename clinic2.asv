@@ -11,7 +11,7 @@ slm_conversion_factor = 1;
 %% Get data from file
 
 % **** Paste in file name ****
-file_name = '2023_11_28__16_25_39__100_hz__100_n__samp_rate_check';
+file_name = '2023_11_09__19_07_20__100_hz__1000_n__background_zeros';
 % .csv file is in the Results folder
 file_location = append('Results/',file_name,'.csv');
 % Make a table of the .csv data
@@ -35,7 +35,7 @@ figure(34)
 plot(sr_diff)
 title("Sampling Periods of OPFS Test")
 xlabel("Sample")
-ylabel("Sampling Period (ms)")
+ylabel("Sampling Period (s)")
 
 sr_mean = 1 / (min_samp_per/1000);
 
