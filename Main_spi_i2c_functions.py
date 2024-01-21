@@ -244,7 +244,7 @@ if __name__ == "__main__":
     ''' Runs first. Input parameters for run and file name
     '''
     # Set number of measurements to take
-    n = 100
+    n = 10000
     # Set sample rate
     samp_rate = 100
     # Add notes to file name
