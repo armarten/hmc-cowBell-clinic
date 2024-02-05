@@ -1,11 +1,8 @@
 
 /*
-   Reading flow rate from DIY orifice flow sesnor. This code reads from the following sensors and outputs
-   data to the serial terminal which can be copied into notepad and saved as a .csv file for importing into Excel:
-   - Reads flow rate from the DIY orifice flow sensor based on a lookup table (will need recalibrating for your test rig)
-     (not compensated for temperature or downstream pressure)
-   - Reads the sensirion SFM3300 sensor over i2c for calibration purposes
-  Code written by Darren Lewis, May 2020
+  Reading flow rate from Sensirion SFM3300 mass flow sensor over I2C.
+  Heavily based on code from https://github.com/dwerne/Sensirion_SFM3000_arduino/
+  Adjusted by by Darren Lewis, May 2020
   Adjusted by CowBell Labs Clinic Team, Fall 2023-Spring 2024
   With input from ChatGPT
 */
