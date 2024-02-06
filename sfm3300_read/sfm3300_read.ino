@@ -32,11 +32,21 @@ void setup() {
   Serial.begin(9600);
   measflow.init();
   Serial.println("Sensor initialized!");
+  Serial.println("data_begin");
+  Serial.print("time_ms");
+  Serial.print(" , ");
+  Serial.print("raw_val");
+  Serial.print(" , ");
+  Serial.print("point_flow");
+  Serial.print(" , ");
+  Serial.println("avg_flow");
 }
 
 int const a_size = 100;
 float rollingAverage[a_size] = {0};  // Array to store the last 'a_size' SFM3300 sensor readings
 int currentIndex = 0;
+
+
 
 void loop() {
   int rawValue = analogRead(orificeSensorPin);

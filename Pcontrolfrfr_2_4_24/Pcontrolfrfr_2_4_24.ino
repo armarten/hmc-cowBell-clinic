@@ -43,7 +43,7 @@ AccelStepper *stepper;
 float Kp = 350; // Adjust this based on your system's response
 //---------------------------------------
 // Desired flow rate
-float desiredFlowRate = 5.0; // Example value, set this according to your needs
+float desiredFlowRate = 0.0; // Example value, set this according to your needs
 //---------------------------------------
 
 
@@ -61,7 +61,9 @@ void setup() {
   digitalWrite(dirPin, HIGH); // Change to LOW if needed
   // Monitor pin goes low when the current sense is not being sampled
   digitalWrite(monitorPin, LOW);
+
   performMotorOperation();
+
   delay(500);
   Serial.println("Valve Motor Calibrated, Position Set to Zero");
   digitalWrite(dirPin, LOW);
@@ -78,23 +80,44 @@ void setup() {
   stepper->setCurrentPosition(0);
   Serial.println("Mass Flow Controller Ready, Starting Control Loop in 2 Seconds...");
   delay(2000);
+ // Indicate calibration messages are over, data printing begins
+  Serial.println("data_begin");
+  // Print csv headers
+  Serial.print("time_ms");
+  Serial.print(" , ");
+  Serial.print("desired_flowrate");
+  Serial.print(" , ");
+//  Serial.print("point_flowrate");
+//  Serial.print(" , ");
+  Serial.print("avgd_flowrate");
+  Serial.print(" , ");
+  Serial.print("error");
+  Serial.print(" , ");
+  Serial.print("control_effort");
+  Serial.print(" , ");
+  Serial.print("current_pos");
+  Serial.print(" , ");
+  Serial.print("new_goal_pos");
+  Serial.println();
  // ---------------------------------------------------------------------------
 
 }
-  // Rolling Avg Stuff for Flow Sensor 
-  int const a_size = 100;
-  float rollingAverage[a_size] = {0};  // Array to store the last 'a_size' SFM3300 sensor readings
-  int currentIndex = 0;
-  // Rolling Avg Stuff for Flow Sensor 
+
 
 void loop() {
+  
 
+  Serial.print(millis()); // time for csv
+  Serial.print(" , ");
+  
   readSensors(); // Read Flow rate 
   float currentFlowRate = (averageFlow); // Updates Flow Measurement
 
   // Calculate error
   float error = desiredFlowRate - currentFlowRate;
   //Serial.println("error" + String(error));
+  Serial.print(error); // error for csv
+  Serial.print(" , ");
 
   // Calculate control effort (desired position)
   long controlEffort = long(Kp * error); 
@@ -102,9 +125,16 @@ void loop() {
   
   controlEffort = -controlEffort;
   //Serial.println("Control Effort: " + String(controlEffort));
+  
 
   long newgoalposition = stepper->currentPosition() + controlEffort;
   long currpos = stepper->currentPosition();
+  Serial.print(controlEffort); // error for csv
+  Serial.print(" , ");
+  Serial.print(String(currpos)); // for csv
+  Serial.print(" , ");
+  Serial.print(String(newgoalposition)); // for csv
+  Serial.println();
 
   //Serial.println();
  // Serial.println("error" + String(error));  
@@ -135,6 +165,14 @@ void loop() {
 //-------------------------------------
 //-------------------------------------
 
+
+// Rolling Avg Stuff for Flow Sensor 
+int const a_size = 100;
+float rollingAverage[a_size] = {0};  // Array to store the last 'a_size' SFM3300 sensor readings
+int currentIndex = 0;
+// Rolling Avg Stuff for Flow Sensor 
+
+
 void readSensors() {
   int rawValue = analogRead(orificeSensorPin);
   float zeroedADCval = float(rawValue) - ADCoffset;
@@ -143,7 +181,8 @@ void readSensors() {
 
   averageFlow = 0; // Reset averageFlow to calculate new average
 
-  for (int i = 0; i < 100; ++i) {
+// Get running average
+  for (int i = 0; i < a_size; ++i) {
     float flowSFM = measflow.getvalue();
     if (flowSFM > 0) flowSFM = 0;
     else if (flowSFM < 0) flowSFM = flowSFM - offset;
@@ -152,17 +191,16 @@ void readSensors() {
     rollingAverage[currentIndex] = flowSFM;
     currentIndex = (currentIndex + 1) % a_size;
 
-    averageFlow += flowSFM; // Accumulate the sum of 30 readings
+    averageFlow += flowSFM; // Accumulate the sum of a_size readings
   }
 
-  averageFlow /= 100; // Calculate the average of 30 readings
+  averageFlow /= a_size; // Calculate the average of the readings
 
  // Serial.print("averageFlow:");
-  Serial.print(averageFlow); // Print the new rolling average of 30 values
-  Serial.print(",");
- // Serial.print("desiredFlowRate:");
-  Serial.print(desiredFlowRate);
-  Serial.println();
+  Serial.print(desiredFlowRate); // for csv
+  Serial.print(" , ");
+  Serial.print(averageFlow); // Print the new rolling average of 30 values for csv
+  Serial.print(" , ");
 }
 
 
@@ -223,21 +261,3 @@ float readAndAverage() {
 //-------------------------------------
 //-------------------------------------
 //-------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
