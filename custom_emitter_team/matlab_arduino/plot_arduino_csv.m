@@ -1,30 +1,31 @@
 clear;
 close all hidden;
 
-file_name = '05-Feb-2024-21-27-39_test_zeroes'; % Input file name from arduino_output_save folder
-name_note = "5slm_step";
-figlist = [30];
+file_name = '07-Feb-2024-13-24-22_ppp_sweep'; % Input file name from arduino_output_save folder
+name_note = "ppp_sweep";
+figlist = [];
 
 T = table_from_csv(file_name);
 plots(T)
-save_plots(figlist, append(file_name, name_note))
+save_plots(figlist, append(file_name, "_", name_note))
 
 %%
 function plots(T)
     % Plots from table
     figure(30);
-        plot(T.time_ms,T.avgd_flowrate);
-        hold on;
-        yline(mean(T.desired_flowrate));
-%         plot(T.time_ms,T.avgd_flowrate);
-        hold off;
-        fig_title = append("System Response with Proportional Control at 5 slm, K_p = ",num2str(mean(T.kp)));
+        plot(T.time_ms,T.avg_flow); % table headers change on Arduino file (sfm3300_read vs Pcontorlfrfr)
+%         hold on;
+% %         yline(mean(T.desired_flowrate));
+% %         plot(T.time_ms,T.avgd_flowrate);
+%         hold off;
+        fig_title = "SLM through SFM3300 sweep across PPP valve full range";
+%         fig_title = append("System Response with Proportional Control at 5 slm, K_p = ",num2str(mean(T.kp)));
         title(fig_title);
         xlabel("Time (ms)");
         ylabel("Mass Flow Rate (slm)");
 %         legend();
-    figure(40)
-        plot(T.time_ms(5:end), T.avgd_flowrate(5:end))
+%     figure(40);
+%         plot(T.time_ms(5:end), T.avgd_flowrate(5:end));
 end
 
 function T = table_from_csv(file_name)

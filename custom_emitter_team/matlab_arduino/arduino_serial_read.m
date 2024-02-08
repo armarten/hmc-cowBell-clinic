@@ -6,7 +6,7 @@ function arduino_serial_read()
     
     try
         % Generage a timestamped file name for the csv file
-        name_note = 'test_zeroes';
+        name_note = 'ppp_sweep';
         timedatestamp_messy = string(datetime);
         timedatestamp = regexprep(timedatestamp_messy, '[ :]', '-');
         file_name = append('arduino_output_save/',timedatestamp,"_",name_note);
