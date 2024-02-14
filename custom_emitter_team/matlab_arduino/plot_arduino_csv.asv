@@ -1,7 +1,7 @@
 clear;
 close all hidden;
 
-file_name = 'Custom Emitter Characterization and Calibration - Comparable MFCs(1)'; % Input file name from arduino_output_save folder
+file_name = 'Custom Emitter Characterization and Calibration - Comparable MFCs'; % Input file name from arduino_output_save folder
 name_note = "";
 figlist = [];
 
@@ -27,11 +27,9 @@ function plots(T)
 %         legend();
 %     figure(40);
 %         plot(T.time_ms(5:end), T.avgd_flowrate(5:end));
-     scatter3(T.min_flow_at_10_error_slm,T.max_flow_rate,T.cost,"filled");
-     xlabel("Min flow rate at 10% error (slm)");
-     ylabel("Max flow rate (slm)")
-     text(T.min_flow_at_10_error_slm,T.max_flow_rate,T.cost,T.model)  %<---- play with this      
-     zlabel("Cost, $USD");
+     plot3(T.min_flow_at_10_error_slm,T.max_flow_rate,T.cost)
+     xlabel("Min flow at 10% error")
+     ylabel("Max flow")
 end
 
 function T = table_from_csv(file_name)

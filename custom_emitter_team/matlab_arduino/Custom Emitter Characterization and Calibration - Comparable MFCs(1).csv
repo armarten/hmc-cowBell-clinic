@@ -1,0 +1,20 @@
+Link,Manufacturer, Model , Cost ,Low Flow Error (slm),Min Flow at 10% Error (slm),Max Flow Rate (slm),Notes,Extra Features
+data_begin,,,,,,,,
+link,manufacturer, model , cost ,low_flow_error_slm,min_flow_at_10_error_slm,max_flow_rate,notes,extra_Features
+https://www.dakotainstruments.com/6agc1al55-ab,Dakota Instruments,6AGC1AN55-07AB,825,0.01,0.1,1,,
+https://www.dakotainstruments.com/6agc1al55-ab,Dakota Instruments,6AGC1AN55-09AB,825,0.05,0.5,5,,No LCD
+https://www.dakotainstruments.com/6agc1al55-ab,Dakota Instruments,6AGC1AN55-10AB,825,0.1,1,10,,No LCD
+https://www.dakotainstruments.com/6agc1al55-ab,Dakota Instruments,6AGC1AL55-10AB,918,0.1,1,10,,"LCD Readout, local or remote setpoint control"
+https://www.aalborg.com/index.php/main_page/product_info/products_id/443629,Aalborg,DFC26S-VAN5-C2 ,1572,0.1,1,10,,https://www.aalborg.com/images/file_to_download/en_Aalborg_EM20230327_DFC.pdf
+https://www.sensirion.com/products/catalog/SFC6000D-20slm/,Sensirion,SFC6000D-20slm,399.94,0.04,0.4,20,0.2% FS or 2% SP,
+https://sensirion.com/products/catalog/SFC6000//,Sensirion,SFC6000D-50slm,359,0.1,1,50,0.2% FS or 2% SP ,
+https://www.dakotainstruments.com/6agc3sl55-ab,Dakota Instruments,6AGC3AN55-33AB,996,0.5,5,50,,No LCD
+https://www.aalborg.com/index.php/main_page/product_info/products_id/443902,Aalborg,DFC36S-VAN5-C2 ,1676,0.5,5,50,,https://www.aalborg.com/images/file_to_download/en_Aalborg_EM20230327_DFC.pdf
+https://www.dakotainstruments.com/6agc4al55-ab,Dakota Instruments,6AGC4AN55-42AB,1169,1,10,100,,No LCD
+https://www.aalborg.com/index.php/main_page/product_info/products_id/444063,Aalborg,DFC46S-VDN5-C2,1782,1,10,100,,https://www.aalborg.com/images/file_to_download/en_Aalborg_EM20230327_DFC.pdf
+https://www.sensirion.com/products/catalog/SFC5500-200slm/,Sensirion,SFC5500-200slm,1337.77,0.16,1.6,200,0.08% FS or 0.8% SP,
+https://www.dakotainstruments.com/6agc5al55-ab,Dakota Instruments,6AGC5AN55-42AB,1368,6,60,200,Error decreases > 20% of FS,
+,,CowBell Labs Clinic Team,300,,0.08,280,,
+,,Goal,500,,0.034,340,,
+https://www.dakotainstruments.com/6agc6al55-ab,Dakota Instruments,6AGC6AN55-60AB,1599,15,150,500,Error decreases > 20% of FS,
+https://www.dakotainstruments.com/6agc7al55-ab,Dakota Instruments,6AGC7AN55-70AB,2061,30,300,1000,Error decreases > 20% of FS,
