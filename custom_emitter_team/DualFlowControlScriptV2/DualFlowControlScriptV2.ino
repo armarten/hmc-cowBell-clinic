@@ -35,14 +35,19 @@ float voltageValues[100]; // Array to store voltage values
 int valueCount = 0; // Counter for the number of voltage values collected
 float stdDevHistory[5] = {0, 0, 0, 0, 0}; // Buffer for Sdev Vals
 int stdDevHistoryIndex = 0; // Buffer Index
+
+
+bool scriptRunning = false; // Flag to indicate whether the script is running
+
+
 // --------------------------------------------------------
 //Flow Meter Setup Stuff
 //----------------------------------------------------------
 #include <Wire.h>
 #define SDA_2 25  // Secondary I2C Bus 
 #define SCL_2 26 // Secondary I2C Bus
-float FlowSens_Big_Average = 0; //Declare Globally 
-float FlowSens_Small_Average = 0; //Declare Globally 
+// float FlowSens_Big_Average = 0; //Declare Globally 
+// float FlowSens_Small_Average = 0; //Declare Globally 
 //----------------------------------------------------------
 // Wifi Control Setup Stuff
 //---------------------------------------------------------- 
@@ -53,10 +58,11 @@ float FlowSens_Small_Average = 0; //Declare Globally
 // P control Parameter Setup
 // ----------------------------------------------------------
 // Proportional Gain
-float Kp = 800; // This is my guess based on 45 PSI input 
+float Kp = 600; // This is my guess based on 45 PSI input 
+float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
-float desiredFlowRate = 100.0; // Change
+float desiredFlowRate = 0; // Change, units SLPM
 int Stop_Flag = 0; // Flag for big valve only going once 
 // ----------------------------------------------------------
 
@@ -70,23 +76,24 @@ void setup() {
   pinMode(2, OUTPUT); // Big_Motor 2 Step pin
   pinMode(15, OUTPUT); // Big_Motor 2 Dir pin
   pinMode(monitorPin, OUTPUT);
-  Serial.begin(115200);
+  Serial.begin(9600);
+  Serial.flush();
   // --------------------------------------------------------
   // Motor Calibration, comment out this sec below to skip 
   // --------------------------------------------------------
-  delay(100); // Just giving time to open monitor
-  Serial.println("Calibrating....");
-  digitalWrite(0, HIGH); // Change to LOW if needed for Big_Motor
-  performMotorOperation(2, 15, 0.02); // Calibrate Big_Motor 1 with threshold
-  delay(200);
-  Serial.println("Big_Motor Calibrated");
-  delay(200);
-  digitalWrite(15, HIGH); // Change to LOW if needed for Big_motor
-  float stdDevHistory[5] = {0.02, 0.02, 0.02, 0.02, 0.02}; // Reset Buffer
-  performMotorOperation(4, 0, 0.04); // Calibrate Small_Motor with threshold
-  delay(200);
-  Serial.println("Small_Motor Calibrated");
-  delay(200);
+  //delay(100); // Just giving time to open monitor
+ // Serial.println("Calibrating....");
+  //  digitalWrite(0, HIGH); // Change to LOW if needed for Big_Motor
+  //  performMotorOperation(2, 15, 0.02); // Calibrate Big_Motor 1 with threshold
+  //  delay(200);
+  //  Serial.println("Big_Motor Calibrated");
+  //  delay(200);
+   // digitalWrite(15, HIGH); // Change to LOW if needed for Big_motor
+ //   float stdDevHistory[5] = {0.02, 0.02, 0.02, 0.02, 0.02}; // Reset Buffer
+  //  performMotorOperation(4, 0, 0.04); // Calibrate Small_Motor with threshold
+  //  delay(200);
+  //  Serial.println("Small_Motor Calibrated");
+  //  delay(200);
 
   // ----------------------------------------------------------
   // Calibration, comment out this sec above to skip  ^^^^^
@@ -109,7 +116,7 @@ void setup() {
   // ----------------------------------------------------------
   // Dual Flow Read Setup Stuff 
   // ----------------------------------------------------------
-  Serial.flush();
+
 
   // Initialize the default I2C bus for Flowsens_Big
   Wire.begin();
@@ -133,10 +140,29 @@ void setup() {
   // End of Setup!
   //
   // ----------------------------------------------------------
-  Serial.println("Mass Flow Controller Ready, Starting Control Loop in 1 Second...");
+ // Serial.println("Mass Flow Controller Ready, Starting Control Loop in 1 Second...");
   delay(1000);
   //-----------------------------------------------------------
+  Serial.println("***"); // Filler lines for for MATLAB csv read code
+  Serial.println("***");
+  Serial.println("***");
+
+  Serial.println("data_begin");
+  Serial.println("time_ms, set_point, flow_3300, flow_3400, total, control_effort, new_goal_position");
   
+  Serial.println("MAKE SURE ALL VALVES ARE CLOSED!!!!!!");
+
+  Serial.println("Type 'on' to start the script...");
+  waitForOnCommand();
+
+  Serial.println("Enter desired flow rate (SLPM).");
+  desiredFlowRate = getDesiredFlowRate();
+
+
+
+
+
+
 
 }
 
@@ -144,21 +170,28 @@ void loop() {
 
   // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
 
-  if (Stop_Flag == 0 && desiredFlowRate>25) {
-    long BigMotorPosition = ((desiredFlowRate-10)/50)*3000; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
+  if (Stop_Flag == 0 && desiredFlowRate>bigMotorCutoff) {
+    long BigMotorPosition = ((desiredFlowRate-10)/50)*3200; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
     // Now the motor moves!
+    BigMotorPosition= -BigMotorPosition;
     Big_Motor->moveTo(BigMotorPosition); 
     while (Big_Motor->distanceToGo() != 0) {
       Big_Motor->run();
     }
     Stop_Flag=1;
+    delay(3000);
   }
 
-  readAndAverageFlowSens_Big();
-  readAndAverageFlowSens_Small();
+  
+
+  float FlowSens_Big_Average = readAndAverageFlowSens_Big();
+  float FlowSens_Small_Average = readAndAverageFlowSens_Small();
 
   float currentBigFlowRate = (FlowSens_Big_Average); // Updates Flow 
   float currentSmallFlowRate = (FlowSens_Small_Average); // Updates Flow 
+  if (desiredFlowRate<bigMotorCutoff) { 
+    currentBigFlowRate = 0.0; 
+    }
   float total_flow= currentSmallFlowRate + currentBigFlowRate;
  
   float error = desiredFlowRate - (total_flow);  // Calculate error
@@ -169,35 +202,68 @@ void loop() {
   
   long newgoalposition = Small_Motor->currentPosition() + controlEffort;
   long currpos = Small_Motor->currentPosition();
+  // Serial.println("");
+  // Serial.print("  Big sensor flow rate:  ");
+  // Serial.println(currentBigFlowRate); // time for csv
+  // delay(100); 
+  // Serial.print("Small sensor flow rate:  ");
+  // Serial.println(currentSmallFlowRate); // time for csv
+  // delay(100); 
+  // Serial.print("       Total flow rate:  ");
+  // Serial.println(total_flow);
+  // delay(100); 
+  // Serial.print("        Control effort:  ");
+  // Serial.println(controlEffort); // time for csv
+  // delay(100); 
+  // Serial.print("     New goal position:  ");
+  // Serial.println(newgoalposition); // time for csv
+  // delay(100); 
+
+
+  Serial.print(millis());
+  Serial.print(" , ");
+  Serial.print(desiredFlowRate, 3);
+  Serial.print(" , ");
+  Serial.print(currentBigFlowRate, 3); // time for csv
+  Serial.print(" , ");
+  Serial.print(currentSmallFlowRate, 3); // time for csv
+  Serial.print(" , ");
+  Serial.print(total_flow, 3); // time for csv
+  Serial.print(" , ");
+  Serial.print(controlEffort); // time for csv
+  Serial.print(" , ");
+  Serial.println(newgoalposition); // time for csv
+
  
   // Future crash Check
   if (newgoalposition > 0  || newgoalposition < -31000) {
+        Serial.println(newgoalposition);
         Serial.println("Crash Course detected!...Motor stopped, Please restart program!");
         while(1);  // Infinite loop to halt the program
     }
-  
+  delay(100); 
 
   // Print out all the needed info before moving the motor
-  Serial.print(millis()); // time for csv
-  Serial.print(" , ");
-  Serial.print(String(currentBigFlowRate)); // time for csv
-  Serial.print(" , ");
-  Serial.print(String(currentSmallFlowRate)); // time for csv
-  Serial.print(" , ");
-  Serial.print(String(total_flow)); // time for csv
-  Serial.print(" , ");
-  Serial.print(String(desiredFlowRate)); // time for csv
-  Serial.print(" , ");
-  Serial.print(String(error)); // error for csv
-  Serial.print(" , ");
-  Serial.print(String(Kp));
-  Serial.print(" , ");
-  Serial.print(String(controlEffort)); // error for csv
-  Serial.print(" , ");
-  Serial.print(String(currpos)); // for csv
-  Serial.print(" , ");
-  Serial.print(String(newgoalposition)); // for csv
-  Serial.println();
+ // Serial.print(millis()); // time for csv
+ // Serial.print(" , ");
+ // Serial.print(String(currentBigFlowRate)); // time for csv
+ // Serial.print(" , ");
+ // Serial.print(String(currentSmallFlowRate)); // time for csv
+ // Serial.print(" , ");
+ // Serial.print(String(total_flow)); // time for csv
+ // Serial.print(" , ");
+ // Serial.print(String(desiredFlowRate)); // time for csv
+ // Serial.print(" , ");
+ // Serial.print(String(error)); // error for csv
+ // Serial.print(" , ");
+ // Serial.print(String(Kp));
+ // Serial.print(" , ");
+ // Serial.print(String(controlEffort)); // error for csv
+ // Serial.print(" , ");
+ // Serial.print(String(currpos)); // for csv
+ // Serial.print(" , ");
+ // Serial.print(String(newgoalposition)); // for csv
+ // Serial.println();
   // Print out all the needed info before moving the motor
 
   Small_Motor->moveTo(newgoalposition);   // Set the stepper to the new position
@@ -208,14 +274,7 @@ void loop() {
 
   delay(100); // Just to give it some rest
 
-
 }
-
-
-
-
-
-
 
 
 
@@ -225,37 +284,40 @@ void loop() {
   // Flow Measurement Functions 
   // ----------------------------------------------------------
 
-void readAndAverageFlowSens_Big() {
-  long sum = 0;
-  for (int i = 0; i < 100; i++) {
-    delay(2); // delay to give sensor rest, so total read should take 200ms 
-    Wire.requestFrom(0x40, 2); 
-    uint16_t a1 = Wire.read();
-    uint8_t  b1 = Wire.read();
-    a1 = (a1 << 8) | b1;
-    float flow_Big = ((float)a1 - 32768) / 120; //offset Cal Math 
-    sum += flow_Big;
-  }
-  float FlowSens_Big_Average = sum / 100.0;
-  //Serial.print("Average Flow from FlowSens_Big: ");
-  //Serial.println(FlowSens_Big_Average);
+float readAndAverageFlowSens_Big() {
+  delay(10);
+  Wire.requestFrom(0x40,2); // Request data from Sensor 1
+  uint16_t a1 = Wire.read();
+  uint8_t  b1 = Wire.read();
+  a1 = (a1 << 8) | b1;
+  float FlowSens_Big_Average = ((float)a1 - 32768) / 120; // Convert the data from Sensor 1
+  // Serial.print("Flow from Sensor 1: ");
+  // Serial.println(FlowSens_Big_Average);
+  return FlowSens_Big_Average;
 }
 
-void readAndAverageFlowSens_Small() {
-  long sum = 0;
-  for (int i = 0; i < 100; i++) {
-    delay(2); // delay to give sensor rest, so total read should take 200ms
-    Wire1.requestFrom(0x40, 2); 
-    uint16_t a2 = Wire1.read();
-    uint8_t  b2 = Wire1.read();
-    a2 = (a2 << 8) | b2;
-    float flow_Small = ((float)a2 - 32768) / 800; // offset Cal Math 
-    sum += flow_Small;
-  }
-  float FlowSens_Small_Average = sum / 100.0;
-  //Serial.print("Average Flow from FlowSens_Small: ");
-  //Serial.println(FlowSens_Small_Average);
+
+float readAndAverageFlowSens_Small() {
+  delay(10);
+  Wire1.requestFrom(0x40,2); // Request data from Sensor 2
+  uint16_t a2 = Wire1.read();
+  uint8_t  b2 = Wire1.read();
+  a2 = (a2 << 8) | b2;
+  float FlowSens_Small_Average = ((float)a2 - 32768) / 800; // Convert the data from Sensor 2
+  // Serial.print("Flow from Sensor 2: ");
+  // Serial.println(FlowSens_Small_Average);
+  return FlowSens_Small_Average;
 }
+
+
+
+
+
+  // Read from Sensor 2
+
+
+
+
 
   // ----------------------------------------------------------
   // Initial Motor Calibration Functions below 
@@ -289,7 +351,7 @@ void performMotorOperation(int stepPin, int dirPin, float threshold) {
     if (valueCount == 100) {
       float mean = calculateMean(voltageValues, 100);
       float standardDeviation = calculateStandardDeviation(voltageValues, 100, mean);
-      Serial.println(standardDeviation);
+      // Serial.println(standardDeviation);
 
       // Update circular buffer with the latest standard deviation value
       stdDevHistory[stdDevHistoryIndex] = standardDeviation;
@@ -341,4 +403,37 @@ float calculateStandardDeviation(float arr[], int n, float mean) {
     sum += pow(arr[i] - mean, 2);
   }
   return sqrt(sum / (n - 1));
+}
+
+
+
+void waitForOnCommand() {
+  while (!scriptRunning && !Serial.available()); // Wait for input
+  String input = Serial.readStringUntil('\n'); // Read input
+  if (input == "on") {
+    Serial.println("Script started.");
+    // scriptRunning = true;
+    // Add your script start code here
+  } else {
+    Serial.println("Invalid command. Please type 'on' to start the script.");
+    waitForOnCommand(); // Call the function recursively until valid input is received
+  }
+}
+
+
+
+float getDesiredFlowRate() {
+  while (!scriptRunning && !Serial.available()); // Wait for input
+  String input = Serial.readStringUntil('\n'); // Read input
+  float liveDesiredFlowRate = atof(input.c_str());
+  if (liveDesiredFlowRate > 0.0) {
+    Serial.print("Desired Flow Rate: ");
+    Serial.println(liveDesiredFlowRate);
+    scriptRunning = true;
+    // Add your script start code here
+  } else {
+    Serial.println("Please type a number greater than zero to start the script.");
+    waitForOnCommand(); // Call the function recursively until valid input is received
+  }
+  return liveDesiredFlowRate;
 }

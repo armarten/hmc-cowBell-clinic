@@ -1,12 +1,12 @@
 % Replace 'COMx' with your Arduino's serial port
 
 function arduino_serial_read()
-    s = serialport('/dev/tty.usbmodem2101', 9600);
+    s = serialport('/dev/tty.usbserial-0001', 9600);
     csv_file = fopen('arduino_output_save/error_empty.csv','w'); % Initialize variable
     
     try
         % Generage a timestamped file name for the csv file
-        name_note = 'gray_valve';
+        name_note = 'parallel_test';
         timedatestamp_messy = string(datetime);
         timedatestamp = regexprep(timedatestamp_messy, '[ :]', '-');
         file_name = append('arduino_output_save/',timedatestamp,"_",name_note);

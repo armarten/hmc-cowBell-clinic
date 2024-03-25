@@ -42,7 +42,7 @@ void setup() {
   Serial.println("avg_flow");
 }
 
-int const a_size = 100;
+int const a_size = 50;
 float rollingAverage[a_size] = {0};  // Array to store the last 'a_size' SFM3300 sensor readings
 int currentIndex = 0;
 
