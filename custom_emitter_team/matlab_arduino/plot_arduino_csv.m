@@ -17,6 +17,7 @@ samples = [];
 sum_mfr = [];
 tr_rise_start = [];
 tr_rise_end = []; % time to get to 90% of set point
+timestep = 0.05; % 500 ms
 
 
 for i = 1:length(setpoint)
@@ -49,7 +50,7 @@ for i = 1:length(setpoint)
         T_ss = T_cut;
     end
     
-    plots(T_cut,i, transpose(setpoint));
+    plots(T_cut,i, transpose(setpoint), timestep);
 
 %   run average
 
@@ -93,7 +94,6 @@ for j = transpose(sp_notes)
 end
 
 
-timestep = 0.05; % 500 ms
 total_time_s = timestep .* samples
 total_time_m = total_time_s ./ 60
 expected_emissions_sl = total_time_m .* setpoint
@@ -118,11 +118,11 @@ yline(0)
 title("Percent Error in Total Emissions for Various Set Points");
 
 
-figlist = [];
+figlist = [1 2 3 4 5 6 7];
 
 % plots(T)
 % save_plots(figlist, append(file_name, "_", name_note))
-save_plots(figlist, append("03-24_coolterm_parallel_alicat", "_", "first_parallel_flow_test"))
+save_plots(figlist, append("03-24_coolterm_parallel_alicat", "_", "first_parallel_flow_test_with_pressure"))
 
 
 results_table_file_name = "parallel_flow_test_results";
@@ -135,7 +135,7 @@ writetable(T_results,results_file_location,'Delimiter',',','QuoteStrings','all')
 % scatter_error_compare
 
 %%
-function plots(T, i, setpoint)
+function plots(T, i, setpoint, timestep)
     % Plots from table
     figure(i);
 %         plot((T.time_ms-min(T.time_ms))/1000,T.avgd_flowrate); % table headers change on Arduino file (sfm3300_read vs Pcontorlfrfr)
@@ -162,18 +162,20 @@ function plots(T, i, setpoint)
 
 % CoolTerm
 %     print(setpoint(i))
-    plot((1:height(T.mfr))*0.05,T.mfr)
+    yyaxis left;
+    plot((1:height(T.mfr))*timestep,T.mfr);
+    ylabel("Alicat Flow Reading (SLPM)");
     hold on;
     yline(setpoint(i));
-    yline([1.1*setpoint(i), 0.9*setpoint(i)],':')
-    hold off;
+    yline([1.1*setpoint(i), 0.9*setpoint(i)],':');
+    yyaxis right;
+    plot((1:height(T.mfr))*timestep,T.pres);
+    ylabel("Pressure (psia)");
     title("Parallel Flow Output Measured by Alicat 1 SLPM Mass Flow Meter")
-    ylabel("Alicat Flow Reading (SLPM)")
     xlabel("Time (s)")
 %     ylim([0.035 0.065])
-    legend("MFC Output", "Set point", "+10% of set point", "-10% of set point", "Location","best")
-
-
+    legend("MFC Output", "Upstream pressure", "Set point", "+10% of set point", "-10% of set point", "Location","best")
+    hold off;
 
 end
 
