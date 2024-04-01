@@ -1,4 +1,9 @@
-//------------------------------------------------------------------------------
+// Written for the 2024 Harvey Mudd College CowBell Labs Clinic Project
+// Contributers: Dominick Quaye, Allison Marten
+// Some code written by ChatGPT
+
+
+// ------------------------------------------------------------------------------
 // Hardware Notes: 
 //------------------------------------------------------------------------------
 //1: The Motor controlling the Big Valve, called "Big_Motor", should be on the  driver with Step/Dir pins connected to esp32 pins 15 and 2 
@@ -21,17 +26,28 @@
 
 //Rando: #include
 //#include <avr/pgmspace.h>      // For flash storage
-//----------------------------------------------------------
-// Motor Setup Stuff
-//----------------------------------------------------------
 
+//----------------------------------------------------------
+// NEW1 Pattern Input Setup
+//----------------------------------------------------------
 // For string parsing pattern input
-#include <iostream>
-#include <vector>
-#include <sstream>
-#include <algorithm> // for std::remove_if
+#include <iostream> 
+#include <vector> 
+#include <sstream> 
+#include <algorithm> // for std::remove_if 
+#include <string>
 // End string parsing libraries
 
+float failFlowRate = 10987654321; // Dummy variable to check if flow rate check has failed
+float endFlowRate = 12345678910; // Dummy variable to check if flow rate check has ended
+
+// Forward function and variable declaration
+std::vector<std::vector<float>> stringToArray(const std::string& input);
+std::vector<std::vector<float>> desiredFlowPattern;
+
+//----------------------------------------------------------
+// (end new1) Motor Setup Stuff
+//----------------------------------------------------------
 #include <AccelStepper.h>    // For Stepper 
 AccelStepper *Big_Motor; // Pointer 
 AccelStepper *Small_Motor; // Pointer 
@@ -160,13 +176,22 @@ void setup() {
   Serial.println("Type 'on' to start the script...");
   waitForOnCommand();
 
+
+  // ----------------------------------------------------------
+  // NEW1 Pattern input function calls
+  // ----------------------------------------------------------
+
   // Serial.println("Enter desired flow rate (SLPM).");
 
   // Ask for flow pattern input
-  std::string desiredFlowPatternString = desiredFlowPattern();
+  std::string desiredFlowPatternString = getPatternFlowRate();
   // Convert input string to proper array
   std::vector<std::vector<float>> desiredFlowPattern = stringToArray(desiredFlowPatternString);
   
+
+  // ----------------------------------------------------------
+  // (end new1) Print headers for serial output
+  // ----------------------------------------------------------
 
   Serial.println("data_begin");
   Serial.println("time_ms, set_point, flow_3300, flow_3400, total, control_effort, new_goal_position");
@@ -176,9 +201,30 @@ void setup() {
 void loop() {
 
 
-  // Check flow pattern and get current flow rate
-  float desiredFlowRate = currentDesiredFlowRate(flowPattern, current_time_ms);
+// ----------------------------------------------------------
+// NEW1 Checking pattern array to get current flow rate
+// ----------------------------------------------------------
 
+  // Check flow pattern and get current flow rate
+  float time_check_ms = millis();
+  float desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
+
+  if (desiredFlowRate == endFlowRate) { // Set a condition if desiredFlowRate is 0?
+    std::cout << "FLOW PATTERN ENDED AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
+    Small_Motor->moveTo(0);   // Close valves - not sure if this will work?
+    Big_Motor->moveTo(0);   // Close valves - not sure if this will work?
+    while(1);  // Infinite loop to halt the program
+  }
+  else if (desiredFlowRate == failFlowRate) {
+    std::cout << "FAILURE TO MATCH TIME AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
+    Small_Motor->moveTo(0);   // Close valves - not sure if this will work?
+    Big_Motor->moveTo(0);   // Close valves - not sure if this will work?
+    while(1);  // Infinite loop to halt the program
+  }
+
+  // ----------------------------------------------------------
+  // (end new1)
+  // ----------------------------------------------------------
   // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
 
 
@@ -199,13 +245,24 @@ void loop() {
   float FlowSens_Big_Average = readAndAverageFlowSens_Big();
   float FlowSens_Small_Average = readAndAverageFlowSens_Small();
 
-  float currentBigFlowRate = (FlowSens_Big_Average); // Updates Flow 
-  float currentSmallFlowRate = (FlowSens_Small_Average); // Updates Flow 
-  if (desiredFlowRate<bigMotorCutoff) { 
+  float currentBigFlowRate = FlowSens_Big_Average; // Updates Flow 
+  float currentSmallFlowRate = FlowSens_Small_Average; // Updates Flow 
+
+  // ----------------------------------------------------------
+  // NEW2 Eliminating 0.0333 float on SFM3300
+  // ----------------------------------------------------------
+  if (desiredFlowRate<bigMotorCutoff && abs(currentBigFlowRate) <= 0.04 && abs(currentBigFlowRate) >= 0.02 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+    // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
+    // For now, will just wipe it out if it's between 0.02 and 0.04
+    // It the first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
     currentBigFlowRate = 0.0; 
     }
+  // ----------------------------------------------------------
+  // (end new2)
+  // ----------------------------------------------------------
+  
   float total_flow= currentSmallFlowRate + currentBigFlowRate;
- 
+
   float error = desiredFlowRate - (total_flow);  // Calculate error
 
   long controlEffort = long(Kp * error);   // Calculate control effort 
@@ -232,7 +289,7 @@ void loop() {
   // delay(100); 
 
 
-  Serial.print(millis());
+  Serial.print(time_check_ms); // NEW1, so the time printed reflects time the flow is checked against
   Serial.print(" , ");
   Serial.print(desiredFlowRate, 3);
   Serial.print(" , ");
@@ -246,7 +303,7 @@ void loop() {
   Serial.print(" , ");
   Serial.println(newgoalposition); // time for csv
 
- 
+
   // Future crash Check
   if (newgoalposition > 0  || newgoalposition < -31000) {
         Serial.println(newgoalposition);
@@ -256,26 +313,26 @@ void loop() {
   delay(100); 
 
   // Print out all the needed info before moving the motor
- // Serial.print(millis()); // time for csv
- // Serial.print(" , ");
- // Serial.print(String(currentBigFlowRate)); // time for csv
- // Serial.print(" , ");
- // Serial.print(String(currentSmallFlowRate)); // time for csv
- // Serial.print(" , ");
- // Serial.print(String(total_flow)); // time for csv
- // Serial.print(" , ");
- // Serial.print(String(desiredFlowRate)); // time for csv
- // Serial.print(" , ");
- // Serial.print(String(error)); // error for csv
- // Serial.print(" , ");
- // Serial.print(String(Kp));
- // Serial.print(" , ");
- // Serial.print(String(controlEffort)); // error for csv
- // Serial.print(" , ");
- // Serial.print(String(currpos)); // for csv
- // Serial.print(" , ");
- // Serial.print(String(newgoalposition)); // for csv
- // Serial.println();
+  // Serial.print(millis()); // time for csv
+  // Serial.print(" , ");
+  // Serial.print(String(currentBigFlowRate)); // time for csv
+  // Serial.print(" , ");
+  // Serial.print(String(currentSmallFlowRate)); // time for csv
+  // Serial.print(" , ");
+  // Serial.print(String(total_flow)); // time for csv
+  // Serial.print(" , ");
+  // Serial.print(String(desiredFlowRate)); // time for csv
+  // Serial.print(" , ");
+  // Serial.print(String(error)); // error for csv
+  // Serial.print(" , ");
+  // Serial.print(String(Kp));
+  // Serial.print(" , ");
+  // Serial.print(String(controlEffort)); // error for csv
+  // Serial.print(" , ");
+  // Serial.print(String(currpos)); // for csv
+  // Serial.print(" , ");
+  // Serial.print(String(newgoalposition)); // for csv
+  // Serial.println();
   // Print out all the needed info before moving the motor
 
   Small_Motor->moveTo(newgoalposition);   // Set the stepper to the new position
@@ -285,6 +342,7 @@ void loop() {
   }
 
   delay(100); // Just to give it some rest
+
 
 }
 
@@ -433,42 +491,12 @@ void waitForOnCommand() {
 }
 
 
-// void askForFlowType() {
-//   Serial.println("Type 'c' to initiate constant flow and 'p' to initiate pattern flow");
-//   while (!scriptRunning && !Serial.available()); // Wait for input
-//   String input = Serial.readStringUntil('\n'); // Read input
-//   if (input == "c") {
-//     Serial.println("Script started.");
-//     // scriptRunning = true;
-//     // Add your script start code here
-//   } else if (input == "p")  {
-
-//   }
-//   else {}
-//     Serial.println("Invalid command. Please type 'c' or 'p' to start the script.");
-//     waitForOnCommand(); // Call the function recursively until valid input is received
-//   }
-// }
+// ----------------------------------------------------------
+// NEW1 functions for flow pattern input and parsing
+// ----------------------------------------------------------
 
 
-
-// float getConstFlowRate() {
-//   while (!scriptRunning && !Serial.available()); // Wait for input
-//   String input = Serial.readStringUntil('\n'); // Read input
-//   float liveDesiredFlowRate = atof(input.c_str());
-//   if (liveDesiredFlowRate > 0.0) {
-//     Serial.print("Desired Flow Rate: ");
-//     Serial.println(liveDesiredFlowRate);
-//     scriptRunning = true;
-//     // Add your script start code here
-//   } else {
-//     Serial.println("Please type a number greater than zero to start the script.");
-//     getConstFlowRate(); // Call the function recursively until valid input is received
-//   }
-//   return desiredFlowRate;
-
-
-float getPatternFlowRate() {
+std::string getPatternFlowRate() {
   Serial.println("Input your flow pattern.");
   Serial.println("");
   Serial.println("Flow rates in SLPM, duration in minutes.");
@@ -477,20 +505,21 @@ float getPatternFlowRate() {
   Serial.println("");
   Serial.println("All parameters must be valid numbers. Spaces around , and ; are optional.");
   while (!scriptRunning && !Serial.available()); // Wait for input
-  String input = Serial.readStringUntil('\n'); // Read input
-  desiredFlowPattern = input;
-  if (input[0] == "[") {
+  // string input = Serial.readStringUntil('\n'); // Read input
+  // std::string inputString = Serial.readStringUntil('\n');
+  // std::string desiredFlowPattern = inputString;
+  String inputString = Serial.readStringUntil('\n'); // Read input
+  std::string desiredFlowPattern = inputString.c_str();
+  if (desiredFlowPattern[0] == '[') {
     Serial.print("Desired Flow Pattern: ");
-    Serial.println(desiredFlowPattern);
-    scriptRunning = true;
+    Serial.println(desiredFlowPattern.c_str()); // Convert to const char* for println    scriptRunning = true;
     // Add your script start code here
   } else {
     Serial.println("Your input was not accepted. Please enter a string in the provided form.");
     getPatternFlowRate(); // Call the function recursively until valid input is received
   }
   return desiredFlowPattern;
-
-
+}
 
 
 
@@ -536,24 +565,63 @@ std::vector<std::vector<float>> stringToArray(const std::string& input) {
 }
 
 
-float currentDesiredFlowRate(flowPattern, current_time_ms) {
-  
+float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int current_time_ms) {
+  float desiredFlowRate;
   float flowStartTime = 0;
   int numRows = flowPattern.size();
       for (int i = 0; i <= numRows-1; ++i) {
-        flowEndTime = flowStartTime + flowPattern[i][1];
-        if isBetween(float current_time_ms, float priorFlow, float upperBound) {
-          float desiredFlowRate = flowPattern[i][0];
-          std::cout << "Switching to flow rate " << desiredFlowRate << std::endl;
-          std::cout << "At time " << current_time_ms << std::endl;
+        float flowEndTime = flowStartTime + flowPattern[i][1];
+        if (current_time_ms >= flowStartTime && current_time_ms <= flowEndTime) {
+          desiredFlowRate = flowPattern[i][0];
+          std::cout << "Switching to flow rate " << desiredFlowRate << "at time" << current_time_ms << std::endl;
           return desiredFlowRate;
-          break;
         }
-        else {}
-
-        flowStartTime = flowEndTime;
+        else if (current_time_ms > flowEndTime) {
+          return endFlowRate;
+        }
+        else {
+          flowStartTime = flowEndTime;
+        }
       }
-    
+      return failFlowRate;
 }
 
+
+  // ----------------------------------------------------------
+  // (end new1)
+  // ----------------------------------------------------------
+
+// void askForFlowType() {
+//   Serial.println("Type 'c' to initiate constant flow and 'p' to initiate pattern flow");
+//   while (!scriptRunning && !Serial.available()); // Wait for input
+//   String input = Serial.readStringUntil('\n'); // Read input
+//   if (input == "c") {
+//     Serial.println("Script started.");
+//     // scriptRunning = true;
+//     // Add your script start code here
+//   } else if (input == "p")  {
+
+//   }
+//   else {}
+//     Serial.println("Invalid command. Please type 'c' or 'p' to start the script.");
+//     waitForOnCommand(); // Call the function recursively until valid input is received
+//   }
+// }
+
+
+
+// float getConstFlowRate() {
+//   while (!scriptRunning && !Serial.available()); // Wait for input
+//   String input = Serial.readStringUntil('\n'); // Read input
+//   float liveDesiredFlowRate = atof(input.c_str());
+//   if (liveDesiredFlowRate > 0.0) {
+//     Serial.print("Desired Flow Rate: ");
+//     Serial.println(liveDesiredFlowRate);
+//     scriptRunning = true;
+//     // Add your script start code here
+//   } else {
+//     Serial.println("Please type a number greater than zero to start the script.");
+//     getConstFlowRate(); // Call the function recursively until valid input is received
+//   }
+//   return desiredFlowRate;
 
