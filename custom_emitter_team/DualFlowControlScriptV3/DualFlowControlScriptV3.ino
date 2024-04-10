@@ -71,8 +71,7 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 #include <Wire.h>
 #define SDA_2 25  // Secondary I2C Bus 
 #define SCL_2 26 // Secondary I2C Bus
-// float FlowSens_Big_Average = 0; //Declare Globally 
-// float FlowSens_Small_Average = 0; //Declare Globally 
+
 //----------------------------------------------------------
 // Wifi Control Setup Stuff
 //---------------------------------------------------------- 
@@ -83,7 +82,8 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 // P control Parameter Setup
 // ----------------------------------------------------------
 // Proportional Gain
-float Kp = 600; // This is my guess based on 45 PSI input 
+float KpS = 600; // This is my guess based on 45 PSI input 
+float KpB = 60;
 float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
@@ -103,6 +103,7 @@ void setup() {
   pinMode(monitorPin, OUTPUT);
   Serial.begin(9600);
   Serial.flush();
+  Serial.println("Code start.");
   // --------------------------------------------------------
   // Motor Calibration, comment out this sec below to skip 
   // --------------------------------------------------------
@@ -142,7 +143,6 @@ void setup() {
   // Dual Flow Read Setup Stuff 
   // ----------------------------------------------------------
 
-
   // Initialize the default I2C bus for Flowsens_Big
   Wire.begin();
 
@@ -176,23 +176,6 @@ void setup() {
 
   Serial.println("Type 'on' to start the script...");
   waitForOnCommand();
-
-
-  // ----------------------------------------------------------
-  // NEW1 Pattern input function calls
-  // ----------------------------------------------------------
-
-  // Serial.println("Enter desired flow rate (SLPM).");
-
-  // Ask for flow pattern input
-  // std::string desiredFlowPatternString = getPatternFlowRate();
-  // Convert input string to proper array
-  // desiredFlowPattern = stringToArray(desiredFlowPatternString);
-  
-
-  // ----------------------------------------------------------
-  // (end new1) Print headers for serial output
-  // ----------------------------------------------------------
   
 }
 
@@ -202,39 +185,48 @@ float time_start_ms;
 
 
 void loop() {
-  Serial.print("firstLoopFlag: ");
-  Serial.println(firstLoopFlag);
+  // Serial.print("firstLoopFlag: ");
+  // Serial.println(firstLoopFlag);
 
 // ----------------------------------------------------------
 // NEW1 Checking pattern array to get current flow rate
 // ----------------------------------------------------------
 
+
   if (firstLoopFlag == 0) {
-     desiredFlowPatternString = getPatternFlowRate();
+     desiredFlowPatternString = getPatternFlowRate(); // Input string of flow rates and durations
+    //  Serial.println("desiredFlowPatternString");
+    //  Serial.println(desiredFlowPatternString.c_str());
+     desiredFlowPattern = stringToArray(desiredFlowPatternString); // Convert string to actual array
+     Serial.println("data_begin");
+     Serial.println("time_ms, set_point, flow_3300, flow_3400, total, control_effort, new_goal_position");
      time_start_ms = millis();
   }
-  Serial.println("desiredFlowPatternString");
-  Serial.println(desiredFlowPatternString.c_str());
-  desiredFlowPattern = stringToArray(desiredFlowPatternString);
+
 
   // Check flow pattern and get current flow rate
-  // Serial.println("time_start_ms");
-  // Serial.println(time_start_ms);
   float time_check_ms = millis() - time_start_ms;
   
-
   // Serial.println("desiredFlowPattern:");
-  // printArray(desiredFlowPattern);
-  // Serial.println("Done printing desiredFlowPattern in loop:");
+  float oldDesiredFlowRate = desiredFlowRate;
 
-
-  
   float desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
+
+  if (oldDesiredFlowRate != desiredFlowRate) {Stop_Flag = 0;} // So the big valve re-checks if it should move every time flow rate changes
 
   if (desiredFlowRate == endFlowRate) { // Set a condition if desiredFlowRate is 0?
     std::cout << "FLOW PATTERN ENDED AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
-    Small_Motor->moveTo(0);   // Close valves - not sure if this will work?
-    Big_Motor->moveTo(0);   // Close valves - not sure if this will work?
+    // Close valves
+    Big_Motor->moveTo(0); 
+    while (Big_Motor->distanceToGo() != 0) {
+      Big_Motor->run();
+    }
+
+    Small_Motor->moveTo(0);   // Set the stepper to the new position
+    // Perform the steps
+    while (Small_Motor->distanceToGo() != 0) {
+      Small_Motor->run();
+    abort();
     while(1);  // Infinite loop to halt the program
   }
   else if (desiredFlowRate == failFlowRate) {
@@ -245,7 +237,6 @@ void loop() {
     while (Big_Motor->distanceToGo() != 0) {
       Big_Motor->run();
     }
-
 
     Small_Motor->moveTo(0);   // Set the stepper to the new position
     // Perform the steps
@@ -262,18 +253,26 @@ void loop() {
 
   // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
 
-
-  if (Stop_Flag == 0 && desiredFlowRate>bigMotorCutoff) {
-    long BigMotorPosition = ((desiredFlowRate-10)/50)*3200; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
-    // Now the motor moves!
-    BigMotorPosition= -BigMotorPosition;
-    Big_Motor->moveTo(BigMotorPosition); 
-    while (Big_Motor->distanceToGo() != 0) {
-      Big_Motor->run();
-    }
-    Stop_Flag=1;
+  // P control for the big motor until it is within 10% of the setpoint - 10 SLPM
+  // Serial.println(Stop_Flag);
+  if (Stop_Flag == 0 && desiredFlowRate > bigMotorCutoff) {
+    controlBigMotor(constrain(desiredFlowRate - 10, 0, 250)); // If the big motor goal flow rate is above 250, set it to 250
+    Stop_Flag = 1;
     delay(3000);
   }
+
+
+  // if (Stop_Flag == 0 && desiredFlowRate > bigMotorCutoff) {
+  //   long BigMotorPosition = ((desiredFlowRate-10)/50)*3200; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
+  //   // Now the motor moves!
+  //   BigMotorPosition= -BigMotorPosition;
+  //   Big_Motor->moveTo(BigMotorPosition); 
+  //   while (Big_Motor->distanceToGo() != 0) {
+  //     Big_Motor->run();
+  //   }
+  //   Stop_Flag=1;
+  //   delay(3000);
+  // }
 
   
 
@@ -300,12 +299,15 @@ void loop() {
 
   float error = desiredFlowRate - (total_flow);  // Calculate error
 
-  long controlEffort = long(Kp * error);   // Calculate control effort 
+  long controlEffort = long(KpS * error);   // Calculate control effort 
   
   controlEffort = -controlEffort;
   
   long newgoalposition = Small_Motor->currentPosition() + controlEffort;
   long currpos = Small_Motor->currentPosition();
+
+
+
   // Serial.println("");
   // Serial.print("  Big sensor flow rate:  ");
   // Serial.println(currentBigFlowRate); // time for csv
@@ -345,7 +347,7 @@ void loop() {
         Serial.println("Crash Course detected!...Motor stopped, Please restart program!");
         while(1);  // Infinite loop to halt the program
     }
-  delay(100); 
+  // delay(100); 
 
   // Print out all the needed info before moving the motor
   // Serial.print(millis()); // time for csv
@@ -386,6 +388,42 @@ void loop() {
 
 }
 
+
+  // ----------------------------------------------------------
+  // P-Control The Big Motor!!! 
+  // ----------------------------------------------------------
+  
+void controlBigMotor(float targetFlow) {
+
+  if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
+float currentBigFlowRate = 0;
+float error = targetFlow; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
+long controlEffort = 0;
+long newPosition = 0;
+
+  while (abs(error) > targetFlow * 0.1) {
+    currentBigFlowRate = readAndAverageFlowSens_Big();
+    error = targetFlow - currentBigFlowRate;
+    controlEffort = long(KpB* error);
+    controlEffort = -controlEffort;
+    newPosition = Big_Motor->currentPosition() + controlEffort;
+
+    // Crash check
+    if (newPosition > 0 || newPosition < -18200) { 
+      Serial.println(newPosition);
+      Serial.println("Crash Course detected!...Motor stopped, Please restart program!");
+      while (1); // Infinite loop to halt the program
+    }
+
+    Big_Motor->moveTo(newPosition);
+
+    while (Big_Motor->distanceToGo() != 0) {
+      Big_Motor->run();
+    }
+
+    delay(100);
+  }
+}
 
 
   // ----------------------------------------------------------
@@ -551,7 +589,7 @@ std::string getPatternFlowRate() {
   String inputString = Serial.readStringUntil('\n'); // Read input
   std::string desiredFlowPattern = inputString.c_str();
   if (desiredFlowPattern[0] == '[') {
-    Serial.print("Desired Flow Pattern: ");
+    Serial.print("You inputted the following flow pattern: ");
     Serial.println(desiredFlowPattern.c_str()); // Convert to const char* for println    scriptRunning = true;
     // Add your script start code here
   } else {
@@ -689,15 +727,16 @@ float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int cu
     float flowStartTime = 0;
     float flowEndTime;
     int numRows = flowPattern.size();
-    Serial.print("numRows: ");
-    Serial.println(numRows);
+    // Serial.print("numRows: ");
+    // Serial.println(numRows);
         for (int i = 0; i <= numRows-1; ++i) {
-          Serial.print("check time: ");
-          Serial.println(flowPattern[i][1]);
+          // Serial.print("check time: ");
+          // Serial.println(flowPattern[i][1]);
           float flowEndTime = flowStartTime + flowPattern[i][1];
           if (current_time_ms >= flowStartTime && current_time_ms <= flowEndTime) {
             desiredFlowRate = flowPattern[i][0];
-            std::cout << "desiredFlowRate: " << desiredFlowRate << "; time: " << current_time_ms << std::endl;
+            // Stop_Flag = 0;
+            // std::cout << "desiredFlowRate: " << desiredFlowRate << "; time: " << current_time_ms << std::endl;
             return desiredFlowRate;
           }
           else {

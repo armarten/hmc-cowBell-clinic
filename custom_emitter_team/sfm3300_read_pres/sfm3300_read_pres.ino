@@ -9,7 +9,7 @@
 
 
 
-// #include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
 #include <Wire.h>
 #include <sfm3000wedo.h>
 
@@ -17,15 +17,19 @@ SFM3000wedo measflow(64);
 
 int offset = 32768;
 int scale = 120;
+// float pres_atm_offset_pa = ;
+// int presPin = 35;
 
 #define orificeSensorPin A0
 
-const float ADC_mV = 4.8828125;
-const float sensitivity = 4.413;
-const float mmh2O_cmH2O = 10;
-const float mmh2O_kpa = 0.00981;
-const float mmh2O_pa = 9.80665;
-const int ADCoffset = 34;
+const float ADC_mV = 4.8828125;      // convesion multiplier from Arduino ADC value to voltage in mV
+const float sensitivity = 6.4;     // in mV/kPa taken from datasheet
+// const float mmh2O_cmH2O = 10;        // divide by this figure to convert mmH2O to cmH2O
+// const float mmh2O_kpa = 0.00981;     // convesion multiplier from mmH2O to kPa
+// const float mmh2O_pa = 9.80665;      // convesion multiplier from mmH2O to Pa
+const int ADCoffset = 34;            // measured from Arduino when rig is off. Valid for MPX5010DP
+
+float Vs = 5.14;
 
 void setup() {
   delay(500);
@@ -39,7 +43,11 @@ void setup() {
   Serial.print(" , ");
   Serial.print("point_flow");
   Serial.print(" , ");
-  Serial.println("avg_flow");
+  Serial.print("avg_flow");
+  Serial.print(" , ");
+  Serial.print("pres_pa");
+  Serial.print(" , ");
+  Serial.println("pres_psia");
 }
 
 int const a_size = 50;
@@ -49,10 +57,12 @@ int currentIndex = 0;
 
 
 void loop() {
-  // int rawValue = analogRead(orificeSensorPin);
-  // float zeroedADCval = float(rawValue) - ADCoffset;
-  // zeroedADCval = constrain(zeroedADCval, 0, 1023);
-  // float pressurePa = zeroedADCval * ADC_mV / sensitivity * mmh2O_pa;
+
+  int rawValue = analogRead(orificeSensorPin);
+  float Vout = rawValue * Vs / 1023;
+  float P2 = (Vout/Vs - 0.04)/0.0012858;
+  float P_sia_rough = (P2*1000)/6894.757293178;
+  float P_sia_cal = 0.998*P_sia_rough + 0.503;
 
   float flowSFM = measflow.getvalue();
   if (flowSFM > 0) flowSFM = 0;
@@ -72,11 +82,16 @@ void loop() {
 
   Serial.print(millis());
   Serial.print(" , ");
-  // Serial.print(rawValue);
-  // Serial.print(" , ");
+  Serial.print(rawValue);
+  Serial.print(" , ");
   Serial.print(flowSFM);
   Serial.print(" , ");
-  Serial.println(averageFlow);
+  Serial.print(averageFlow);
+  Serial.print(" , ");
+  Serial.print(presPa);
+  Serial.print(" , ");
+  Serial.println(prespsia);
 
-  // delay(100);
+
+  delay(100);
 }

@@ -289,6 +289,12 @@ long newPosition = 0;
     controlEffort = long(Kp * error);
     controlEffort = -controlEffort;
     newPosition = Big_Motor->currentPosition() + controlEffort;
+    Serial.println("startVariables");
+    Serial.println(targetFlow);
+    Serial.println(currentBigFlowRate);
+    Serial.println(error);
+    Serial.println(controlEffort);
+    Serial.println(newPosition);
 
     // Crash check
     if (newPosition > 0 || newPosition < -18200) {

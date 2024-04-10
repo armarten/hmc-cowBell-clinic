@@ -59,7 +59,7 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 // ----------------------------------------------------------
 // Proportional Gain
 float Kp = 600; // This is my guess based on 45 PSI input 
-float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
+float bigMotorCutoff = 33.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
 float desiredFlowRate = 0; // Change, units SLPM
@@ -171,7 +171,7 @@ void loop() {
   // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
 
   if (Stop_Flag == 0 && desiredFlowRate>bigMotorCutoff) {
-    long BigMotorPosition = ((desiredFlowRate-10)/50)*3200; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
+    long BigMotorPosition = (constrain((desiredFlowRate-10),0,250)/50)*3200; // 10 here is offset so it leaves last 10 SLM up to small valve, 50 is a assumtion that 1 turn = 50slm output (based on data at 45 PSI), and 3000 is slightly conservative steps/rev estimate 
     // Now the motor moves!
     BigMotorPosition= -BigMotorPosition;
     Big_Motor->moveTo(BigMotorPosition); 
@@ -189,9 +189,20 @@ void loop() {
 
   float currentBigFlowRate = (FlowSens_Big_Average); // Updates Flow 
   float currentSmallFlowRate = (FlowSens_Small_Average); // Updates Flow 
-  if (desiredFlowRate<bigMotorCutoff) { 
+  // if (desiredFlowRate<bigMotorCutoff) { 
+  //   currentBigFlowRate = 0.0; 
+  //   }
+
+    // ----------------------------------------------------------
+  // NEW2 Eliminating 0.0333 float on SFM3300
+  // ----------------------------------------------------------
+  if (desiredFlowRate<bigMotorCutoff && abs(currentBigFlowRate) <= 0.04 && abs(currentBigFlowRate) >= 0.02 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+    // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
+    // For now, will just wipe it out if it's between 0.02 and 0.04
+    // It the first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
     currentBigFlowRate = 0.0; 
-    }
+  }
+
   float total_flow= currentSmallFlowRate + currentBigFlowRate;
  
   float error = desiredFlowRate - (total_flow);  // Calculate error
