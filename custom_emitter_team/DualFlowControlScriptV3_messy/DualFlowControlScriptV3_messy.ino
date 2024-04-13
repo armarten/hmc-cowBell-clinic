@@ -41,8 +41,20 @@
 float failFlowRate = 10987654321; // Dummy variable to check if flow rate check has failed
 float endFlowRate = 12345678910; // Dummy variable to check if flow rate check has ended
 
-// Forward function and variable declaration
+// Forward function declaration
+std::string getPatternFlowRate();
 std::vector<std::vector<float>> stringToArray(const std::string& input);
+float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int current_time_ms);
+void controlBigMotor(float targetFlow);
+float readAndAverageFlowSens_Big();
+float readAndAverageFlowSens_Small();
+void performMotorOperation(int stepPin, int dirPin, float threshold);
+float readAndAverage();
+float calculateMean(float arr[], int n);
+float calculateStandardDeviation(float arr[], int n, float mean);
+void waitForOnCommand();
+
+// Forward variable declaration
 std::vector<std::vector<float>> desiredFlowPattern;
 std::string desiredFlowPatternString;
 
@@ -251,6 +263,7 @@ void loop() {
       Small_Motor->run();
     abort();
     while(1);  // Infinite loop to halt the program
+  }
   }
   else if (desiredFlowRate == failFlowRate) {
     std::cout << "FAILURE TO MATCH TIME AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
