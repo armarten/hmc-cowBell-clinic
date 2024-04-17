@@ -121,19 +121,19 @@ void setup() {
   // --------------------------------------------------------
   // Motor Calibration, comment out this sec below to skip 
   // --------------------------------------------------------
-  //delay(100); // Just giving time to open monitor
- // Serial.println("Calibrating....");
-  //  digitalWrite(0, HIGH); // Change to LOW if needed for Big_Motor
-  //  performMotorOperation(2, 15, 0.02); // Calibrate Big_Motor 1 with threshold
-  //  delay(200);
-  //  Serial.println("Big_Motor Calibrated");
-  //  delay(200);
-   // digitalWrite(15, HIGH); // Change to LOW if needed for Big_motor
- //   float stdDevHistory[5] = {0.02, 0.02, 0.02, 0.02, 0.02}; // Reset Buffer
-  //  performMotorOperation(4, 0, 0.04); // Calibrate Small_Motor with threshold
-  //  delay(200);
-  //  Serial.println("Small_Motor Calibrated");
-  //  delay(200);
+  delay(100); // Just giving time to open monitor
+  Serial.println("Calibrating....");
+  digitalWrite(0, HIGH); // Change to LOW if needed for Big_Motor
+  performMotorOperation(2, 15, 0.02); // Calibrate Big_Motor 1 with threshold
+  delay(200);
+  Serial.println("Big_Motor Calibrated");
+  delay(200);
+  digitalWrite(15, HIGH); // Change to LOW if needed for Big_motor
+  float stdDevHistory[5] = {0.02, 0.02, 0.02, 0.02, 0.02}; // Reset Buffer
+  performMotorOperation(4, 0, 0.04); // Calibrate Small_Motor with threshold
+  delay(200);
+  Serial.println("Small_Motor Calibrated");
+  delay(200);
 
   // ----------------------------------------------------------
   // Calibration, comment out this sec above to skip  ^^^^^
@@ -247,6 +247,7 @@ void loop() {
   // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
 
   // P control for the big motor until it is within 10% of the setpoint - 10 SLPM
+  // But limit that goal (setpoint-10) to a max of 250 so the goal flow rate can't be higher than 250 SLPM
   // Serial.println(Stop_Flag);
   if (Stop_Flag == 0 && desiredFlowRate > bigMotorCutoff) {
     controlBigMotor(constrain(desiredFlowRate - 10, 0, 250)); // If the big motor goal flow rate is above 250, set it to 250. Otherwise, subtract 10
@@ -286,40 +287,6 @@ void loop() {
   long currpos = Small_Motor->currentPosition();
 
 
-
-  // Serial.println("");
-  // Serial.print("  Big sensor flow rate:  ");
-  // Serial.println(currentBigFlowRate); // time for csv
-  // delay(100); 
-  // Serial.print("Small sensor flow rate:  ");
-  // Serial.println(currentSmallFlowRate); // time for csv
-  // delay(100); 
-  // Serial.print("       Total flow rate:  ");
-  // Serial.println(total_flow);
-  // delay(100); 
-  // Serial.print("        Control effort:  ");
-  // Serial.println(controlEffort); // time for csv
-  // delay(100); 
-  // Serial.print("     New goal position:  ");
-  // Serial.println(newgoalposition); // time for csv
-  // delay(100); 
-
-
-  // Serial.print(time_check_ms); // NEW1, so the time printed reflects time the flow is checked against
-  // Serial.print(" , ");
-  // Serial.print(desiredFlowRate, 3);
-  // Serial.print(" , ");
-  // Serial.print(currentBigFlowRate, 3); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(currentSmallFlowRate, 3); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(total_flow, 3); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(controlEffort); // time for csv
-  // Serial.print(" , ");
-  // Serial.println(newgoalposition); // time for csv
-
-
   // Prepare the data as a single formatted string
   String dataPrint = String(time_check_ms) + " , " +
                   String(desiredFlowRate, 3) + " , " +
@@ -332,7 +299,6 @@ void loop() {
   // Print the formatted string in a single serial write operation
   Serial.println(dataPrint);
 
-
   // Future crash Check
   if (newgoalposition > 0  || newgoalposition < -31000) {
         Serial.println(newgoalposition);
@@ -341,28 +307,6 @@ void loop() {
     }
   // delay(100); 
 
-  // Print out all the needed info before moving the motor
-  // Serial.print(millis()); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(String(currentBigFlowRate)); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(String(currentSmallFlowRate)); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(String(total_flow)); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(String(desiredFlowRate)); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(String(error)); // error for csv
-  // Serial.print(" , ");
-  // Serial.print(String(Kp));
-  // Serial.print(" , ");
-  // Serial.print(String(controlEffort)); // error for csv
-  // Serial.print(" , ");
-  // Serial.print(String(currpos)); // for csv
-  // Serial.print(" , ");
-  // Serial.print(String(newgoalposition)); // for csv
-  // Serial.println();
-  // Print out all the needed info before moving the motor
 
   Small_Motor->moveTo(newgoalposition);   // Set the stepper to the new position
   // Perform the steps
@@ -373,7 +317,7 @@ void loop() {
  
   firstLoopFlag = 1;
 
-  delay(100); // Just to give it some rest, perhaps remove?
+  delayMicroseconds(100); // Just to give it some rest, perhaps remove?
 }
 
 
@@ -409,7 +353,7 @@ void controlBigMotor(float targetFlow) {
       Big_Motor->run();
     }
 
-    delay(100);
+    delayMicroseconds(100);
   }
 }
 
@@ -418,27 +362,23 @@ void controlBigMotor(float targetFlow) {
   // ----------------------------------------------------------
 
 float readAndAverageFlowSens_Big() {
-  delay(10);
+  delayMicroseconds(100); // changed from delay(10)
   Wire.requestFrom(0x40,2); // Request data from Sensor 1
   uint16_t a1 = Wire.read();
   uint8_t  b1 = Wire.read();
   a1 = (a1 << 8) | b1;
   float FlowSens_Big_Average = ((float)a1 - 32768) / 120; // Convert the data from Sensor 1
-  // Serial.print("Flow from Sensor 1: ");
-  // Serial.println(FlowSens_Big_Average);
   return FlowSens_Big_Average;
 }
 
 
 float readAndAverageFlowSens_Small() {
-  delay(10);
+  delayMicroseconds(100); // changed from delay(10)
   Wire1.requestFrom(0x40,2); // Request data from Sensor 2
   uint16_t a2 = Wire1.read();
   uint8_t  b2 = Wire1.read();
   a2 = (a2 << 8) | b2;
   float FlowSens_Small_Average = ((float)a2 - 32768) / 800; // Convert the data from Sensor 2
-  // Serial.print("Flow from Sensor 2: ");
-  // Serial.println(FlowSens_Small_Average);
   return FlowSens_Small_Average;
 }
 
@@ -529,7 +469,6 @@ float calculateStandardDeviation(float arr[], int n, float mean) {
 }
 
 
-
 void waitForOnCommand() {
   while (!scriptRunning && !Serial.available()); // Wait for input
   String input = Serial.readStringUntil('\n'); // Read input
@@ -545,9 +484,8 @@ void waitForOnCommand() {
 
 
 // ----------------------------------------------------------
-// NEW1 functions for flow pattern input and parsing
+// Functions for flow pattern input and string parsing
 // ----------------------------------------------------------
-
 
 std::string getPatternFlowRate() {
   Serial.println("");
@@ -560,9 +498,7 @@ std::string getPatternFlowRate() {
   Serial.println("All parameters must be valid numbers. Spaces around , and ; are optional.");
   Serial.println("");
   while (!scriptRunning && !Serial.available()); // Wait for input
-  // string input = Serial.readStringUntil('\n'); // Read input
-  // std::string inputString = Serial.readStringUntil('\n');
-  // std::string desiredFlowPattern = inputString;
+
   String inputString = Serial.readStringUntil('\n'); // Read input
   std::string desiredFlowPattern = inputString.c_str();
   if (desiredFlowPattern[0] == '[') {
@@ -577,18 +513,12 @@ std::string getPatternFlowRate() {
 }
 
 
-
-
-
 std::vector<std::vector<float>> stringToArray(const std::string& input) {
     std::vector<std::vector<float>> result;
-    // Serial.println("inputted array: ");
-    // Serial.println(input);
+
     
     // Remove the leading '[' and trailing ']' from the input string
     std::string trimmedInput = input.substr(1, input.size() - 2);
-    // Serial.println("trimmedInput: ");
-    // Serial.println(input);
     
     // Use stringstream to parse the string
     std::stringstream ss(trimmedInput);
@@ -615,12 +545,9 @@ std::vector<std::vector<float>> stringToArray(const std::string& input) {
             }
             
             row.push_back(value);
-            // Serial.println("value: ");
-            // Serial.println(value);
+
             isSecondColumn = !isSecondColumn; // Toggle flag for the next iteration
         }
-        // Serial.println("row: ");
-        // Serial.println(row);
         result.push_back(row);
     }
     
@@ -629,83 +556,12 @@ std::vector<std::vector<float>> stringToArray(const std::string& input) {
 
 
 
-// std::vector<std::vector<float>> stringToArray(const std::string& input) {
-//     std::vector<std::vector<float>> result;
-//     Serial.print("inputted array: ");
-//     Serial.println(input.c_str()); // Convert std::string to const char*
-
-//     // Remove the leading '[' and trailing ']' from the input string
-//     std::string trimmedInput = input.substr(1, input.size() - 2);
-//     Serial.print("trimmedInput: ");
-//     Serial.println(trimmedInput.c_str()); // Convert std::string to const char*
-
-//     // Use stringstream to parse the string
-//     std::stringstream ss(trimmedInput);
-//     std::string token;
-
-//     // Parse by delimiter ';'
-//     while (std::getline(ss, token, ';')) {
-//         std::vector<float> row;
-//         std::stringstream row_ss(token);
-//         std::string element;
-//         bool isSecondColumn = false; // Flag to track if we are parsing the second column
-
-//         // Parse each element of the row by delimiter ','
-//         while (std::getline(row_ss, element, ',')) {
-//             // Remove spaces from the element
-//             element.erase(std::remove_if(element.begin(), element.end(), ::isspace), element.end());
-
-//             // Convert string to float
-//             float value = std::stof(element);
-
-//             // If this is the second column, convert minutes to milliseconds
-//             if (isSecondColumn) {
-//                 value *= 60000; // Convert minutes to milliseconds
-//             }
-
-//             row.push_back(value);
-//             Serial.print("value: ");
-//             Serial.println(value);
-//             isSecondColumn = !isSecondColumn; // Toggle flag for the next iteration
-//         }
-//         // Print the row
-//         Serial.print("row: ");
-//         for (const auto& elem : row) {
-//             Serial.print(elem);
-//             Serial.print(" ");
-//         }
-//         Serial.println();
-//         result.push_back(row);
-       
-//     }
-
-//     printArray(result);
-//   return result;
-// }
-
-
 float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int current_time_ms) {
-
-    // // Display the result
-    // std::cout << "Output Array:" << std::endl;
-    // for (const auto& row : flowPattern) {
-    //     std::cout << "{";
-    //     for (size_t i = 0; i < row.size(); ++i) {
-    //         std::cout << row[i];
-    //         if (i < row.size() - 1)
-    //             std::cout << ", ";
-    //     }
-    //     std::cout << "}" << std::endl;
-    // }
-
-    // if (startFlag == 0) { time_start_count_delay = current_time_ms}
  
     float desiredFlowRate;
     float flowStartTime = 0;
     float flowEndTime;
     int numRows = flowPattern.size();
-    // Serial.print("numRows: ");
-    // Serial.println(numRows);
         for (int i = 0; i <= numRows-1; ++i) {
           // Serial.print("check time: ");
           // Serial.println(flowPattern[i][1]);
@@ -723,8 +579,6 @@ float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int cu
         if (current_time_ms > flowEndTime) {
             return endFlowRate;
           }
-        // Serial.print("current_time_ms: ");
-        // Serial.println(current_time_ms);
         return failFlowRate;
 }
 

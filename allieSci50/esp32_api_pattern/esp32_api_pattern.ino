@@ -14,20 +14,24 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <string>
 
 // GPIO Setup
 // int ledPin = 32;  //34 and 35 are read-only
 int internalLedPin = 2;  //to flash when get data request
 // int buttonPin = 33;
 int thermPin = 34;
-int buttonPin = 25; // internal pullup, ADC_2, 
-int ledPin;
+int buttonPin = 25;  // internal pullup, ADC_2,
+int ledPin = 32;
 
 // Output variable initialization
 float runTime;
 int buttonPressed;
 float therm;
 
+// Operation variable initialization
+int runningFlag = 0;
+int blinks = 0;
 
 
 // Web server???
@@ -35,15 +39,15 @@ AsyncWebServer server(80);
 
 
 // REPLACE WITH YOUR NETWORK CREDENTIALS
-const char* ssid     = "Claremont-ETC";
+const char* ssid = "Claremont-ETC";
 const char* password = "Cl@remontI0T";
 
 // const char* PARAM_INPUT_1 = "pickLight";
-const char* PARAM_INPUT_1 = "ctl-light";
+const char* PARAM_INPUT_1 = "ctl-power";
 const char* PARAM_INPUT_2 = "read-data";
-const char* PARAM_INPUT_3 = "ctl-ledPin";
+const char* PARAM_INPUT_3 = "ctl-blinks";
 
-void notFound(AsyncWebServerRequest *request) {
+void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
 
@@ -54,17 +58,17 @@ int readButton() {
 }
 
 
-void ledPattern(int buttonPressed1) { 
+void ledPattern(int buttonPressed1) {
   int i = 0;
+  // int blinks = 5;
   int delayms;
 
   if (buttonPressed1 == 1) {
-    delayms = 500;
+    delayms = 250;
+  } else {
+    delayms = 1000;
   }
-  else {
-    delayms = 2000;
-  }
-  while (i < 5) {
+  while (i < blinks) {
     digitalWrite(ledPin, HIGH);
     delay(delayms);
     digitalWrite(ledPin, LOW);
@@ -79,16 +83,17 @@ void setup() {
   Serial.begin(115200);
   Serial.flush();
   pinMode(internalLedPin, OUTPUT);
-  // pinMode(ledPin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(thermPin, INPUT);
-  
-    
+
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
     Serial.println("WiFi Failed!");
-    return;
+    delay(1000);
+    esp_restart();
   }
 
   Serial.println();
@@ -96,34 +101,37 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   // Send web page with input fields to client
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", "home_page");
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    String params_all_text;
+
+    params_all_text = String(PARAM_INPUT_1) + "\n" + String(PARAM_INPUT_2) + "\n" + String(PARAM_INPUT_3);
+
+    request->send_P(200, "text/plain", params_all_text.c_str());
   });
 
-    // text/plain: Used for plain text content. This could be used for simple textual responses that are not HTML formatted.
+  // text/plain: Used for plain text content. This could be used for simple textual responses that are not HTML formatted.
 
-    // application/json: Used for JSON data. If you're sending JSON data back to the client, you would use this Content-Type.
+  // application/json: Used for JSON data. If you're sending JSON data back to the client, you would use this Content-Type.
 
-    // application/xml or text/xml: Used for XML data. If you're sending XML data back to the client, you would use one of these Content-Types.
+  // application/xml or text/xml: Used for XML data. If you're sending XML data back to the client, you would use one of these Content-Types.
 
-    // image/jpeg, image/png, image/gif, etc.: Used for image data. If you're sending image files or binary data representing images, you would use one of these Content-Types.
+  // image/jpeg, image/png, image/gif, etc.: Used for image data. If you're sending image files or binary data representing images, you would use one of these Content-Types.
 
-    // application/pdf: Used for PDF documents. If you're sending PDF files, you would use this Content-Type.
+  // application/pdf: Used for PDF documents. If you're sending PDF files, you would use this Content-Type.
 
-    // application/octet-stream: Used for arbitrary binary data. If you're sending non-textual binary data, you might use this Content-Type.
+  // application/octet-stream: Used for arbitrary binary data. If you're sending non-textual binary data, you might use this Content-Type.
 
-    // const char* PARAM_INPUT_1 = "ctl-light";
-    // const char* PARAM_INPUT_2 = "read-data";
-    // const char* PARAM_INPUT_3 = "ctl-ledPin";
+  // const char* PARAM_INPUT_1 = "ctl-power";
+  // const char* PARAM_INPUT_2 = "read-data";
+  // const char* PARAM_INPUT_3 = "ctl-blinks";
 
 
-   // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
-  server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) {
-  
+  // Send a GET request to <ESP_IP>/get?input1=<inputMessage>
+  server.on("/get", HTTP_GET, [](AsyncWebServerRequest* request) {
     String inputMessage;
     String inputParam;
     int inputNum;
-    
+
     // GET input1 value on <ESP_IP>/get?input1=<inputMessage>
     if (request->hasParam(PARAM_INPUT_1)) {
       inputMessage = request->getParam(PARAM_INPUT_1)->value();
@@ -131,18 +139,24 @@ void setup() {
       // inputNum = inputMessage.toInt();
       // ledPin = inputNum;
       if (inputMessage == "on") {
-        Serial.println("ON");
-        digitalWrite(ledPin, HIGH);
-      }
+        runningFlag = 1;
+        Serial.println("Running Flag ON");
+        request->send_P(200, "text/plain", "SUCCESS: Power ON");
+      } 
       else if (inputMessage == "off") {
-        Serial.println("OFF");
-        digitalWrite(ledPin, LOW);
+        runningFlag = 0;
+        Serial.println("Running Flag OFF");
+
+        request->send_P(200, "text/plain", "SUCCESS: Power OFF");
+      } 
+      else if (inputMessage == "reset") {
+        Serial.println("Resetting.");
+        request->send_P(200, "text/plain", "SUCCESS: Resetting");
+        esp_restart();
       }
       else {
-        request->send_P(200, "text/plain", "Invalid LED State");
+        request->send_P(200, "text/plain", "Invalid Power Command");
       }
-
-
     }
     if (request->hasParam(PARAM_INPUT_2)) {
       digitalWrite(internalLedPin, HIGH);
@@ -161,16 +175,7 @@ void setup() {
       // Print a minified JSON document to the serial port
       String json_text;
       serializeJson(doc, json_text);
-      // serializeJson(doc, WifiClient);
-      // Serial.print("textTest:");
-      // Serial.println(json_text);
-      // Serial.print("jsonSerial:");
-      // serializeJson(doc, Serial);
 
-      // Same with a prettified document
-
-      // serializeJson(doc, WiFiClient);
-      // json_str = serializeJson(s);
 
       request->send_P(200, "application/json", json_text.c_str());
       delay(100);
@@ -183,28 +188,27 @@ void setup() {
       inputMessage = request->getParam(PARAM_INPUT_3)->value();
       inputParam = PARAM_INPUT_3;
       inputNum = inputMessage.toInt();
-      ledPin = inputNum;
-      pinMode(ledPin, OUTPUT);
-      String pinString = "pin ";
-      String modeString = " mode changed to OUTPUT";
-      String pinOutputString = pinString + inputMessage + modeString;
+      blinks = inputNum;
+      String setString = "set to ";
+      String modeString = " blinks";
+      String pinOutputString = setString + inputMessage + modeString;
 
       request->send_P(200, "text/plain", pinOutputString.c_str());
 
     }
-    
+
 
     else {
       inputMessage = "No message sent";
       inputParam = "none";
       inputNum = 8888888;
     }
-        Serial.print("Input Param: ");
-        Serial.println(inputParam);
-        Serial.print("Input Message: ");
-        Serial.println(inputMessage);
-        Serial.print("Input Number: ");
-        Serial.println(inputNum);
+    Serial.print("Input Param: ");
+    Serial.println(inputParam);
+    Serial.print("Input Message: ");
+    Serial.println(inputMessage);
+    Serial.print("Input Number: ");
+    Serial.println(inputNum);
   });
 
   server.onNotFound(notFound);
@@ -216,9 +220,28 @@ void setup() {
 
 void loop() {
 
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("DISCONNECTED FROM WIFI!");
+    esp_reset();
+  }
+
+  while (runningFlag == 0) {
+    Serial.print("runningFlag: ");
+    Serial.println(runningFlag);
+    delay(100);
+  }
+
+
+  while (blinks == 0) {
+    Serial.print("blinks: ");
+    Serial.println(blinks);
+    delay(100);
+  }
+
+
   // buttonStatus = readButton();
   int buttonState = readButton();
-  buttonPressed = -1*(buttonState-1);
+  buttonPressed = -1 * (buttonState - 1);
   runTime = millis();
   // char thermbuff[10];
   therm = analogRead(thermPin);
@@ -227,11 +250,8 @@ void loop() {
   Serial.println(therm);
   // dtostrf(therm, 8, 3, fbuff);
 
+
+  ledPattern(buttonPressed);
+
   delay(100);
-
-  
 }
-
-
-
-
