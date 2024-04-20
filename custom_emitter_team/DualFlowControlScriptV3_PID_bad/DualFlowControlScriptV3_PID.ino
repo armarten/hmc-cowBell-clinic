@@ -1,3 +1,4 @@
+
 // Written for the 2024 Harvey Mudd College CowBell Labs Clinic Project
 // Contributers: Dominick Quaye, Allison Marten
 // Some code written by ChatGPT
@@ -21,6 +22,19 @@
 //7: Motor_Big is controlling a valve that takes 6.5 Rotations to open, so it should stay between values of 0 and 18,200, or 0 and -18,200, leaving ~1000 steps or ~120 degree buffer for safety.
 
 //------------------------------------------------------------------------------
+// https://www.thorlabs.com/newgrouppage9.cfm?objectgroup_id=9013 Tuning PID
+
+// While manual tuning can be very effective at setting a PID circuit for your specific system, 
+// it does require some amount of experience and understanding of PID circuits and response. 
+// The Ziegler-Nichols method for PID tuning offers a bit more structured guide to setting PID values. 
+// Again, you’ll want to set the integral and derivative gain to zero. 
+// Increase the proportional gain until the circuit starts to oscillate. We will call this gain level Ku. 
+// The oscillation will have a period of Pu. Gains are for various control circuits are then given below in the chart.
+
+// Control Type	  Kp	      Ki	        Kd
+// P	            0.50 Ku	  -	          -
+// PI	            0.45 Ku	  1.2 Kp/Pu	  -
+// PID	          0.60 Ku	  2 Kp/Pu	    KpPu/8
 
 //Code starts here!!
 
@@ -37,7 +51,6 @@
 #include <algorithm> // for std::remove_if 
 #include <string>
 #include <PID_v1.h>
-
 // End string parsing libraries
 
 float failFlowRate = 10987654321; // Dummy variable to check if flow rate check has failed
@@ -97,10 +110,7 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 // ----------------------------------------------------------
 // P control Parameter Setup
 // ----------------------------------------------------------
-// Proportional Gain
-float KpS = 600; // This is my guess based on 45 PSI input 
-float KpB = 60;
-float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
+
 //---------------------------------------
 // Desired flow rate
 float desiredFlowRate = 0; // Change, units SLPM
@@ -108,25 +118,47 @@ int Stop_Flag = 0; // Flag for big valve only going once
 // ----------------------------------------------------------
 
 
-// ----------------------------------------------------------
-// PID Setup
-// ----------------------------------------------------------
+// Proportional Control for Big Motor
+float KpB = 60;
+float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 
-//Define Variables we'll be connecting to
-double Setpoint, Input, Output;
+
+// PID Control for Small Motor
+
+// //Define Variables we'll be connecting to
+// double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters
-double KpS1=2, KiS=5, KdS=1;
-PID myPID(&Input, &Output, &Setpoint, KpS1, KiS, KdS, DIRECT); // Trying Indirect because controlEffort = -controlEffort
-// http://brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-direction/
+  //--------------------------------------------------------
+  // PID Setup 
+  // -------------------------------------------------------
 
-// DIRECT: If the Input is above the Setpoint, the Output goes LOWER.
-// If the speed of the car is above the desired speed set the throttle point lower.
+// PID	          0.60 Ku	  2 Kp/Pu	    KpPu/8
+double KuS = 1200;
+double PuS = 5;
+// double KpS;
+// double KiS;
+// double KdS;
+double KpS = 0.60 * KuS;
+double KiS = 2 * KpS / PuS;
+double KdS = KpS * PuS / 8;
 
-// REVERSE: If the Input is above the Setpoint the Output goes HIGHER.
-// If the temperature of the refrigerator is above the desired temperature, turn on the compressor more often or longer to bring the temperature down.
+float total_flow;
+long controlEffort;
+
+// KuS = 1200.;   // KpS when oscillation
+// PuS = 5;      // oscillation seconds
+
+
+PID myPID(&total_flow, &controlEffort, &desiredFlowRate, KpS, KiS, KdS, DIRECT);
+// double KpS=600, KiS=600, KdS=600;
+
+
+
 
 void setup() {
+
+
   //--------------------------------------------------------
   // Motor Setup 
   // -------------------------------------------------------
@@ -213,35 +245,6 @@ void setup() {
 
   int firstLoopFlag = 0;
   // std::string desiredFlowPatternString;
-
-  // ----------------------------------------------------------
-  // PID 
-  // ----------------------------------------------------------
-
-
-  // //initialize the variables we're linked to
-  Input = 0;
-  Setpoint = 0;
-
-
-
-  //turn the PID on
-  myPID.SetMode(AUTOMATIC);
-
-
-  Serial.println("");
-  Serial.println("Input KpS");
-  Serial.println("");
-  KpS1 = getGainConst();
-  Serial.println("Input KiS");
-  Serial.println("");
-  KiS = getGainConst();
-  Serial.println("Input KdS");
-  Serial.println("");
-  KdS = getGainConst();
-
-
-  myPID.SetTunings(KpS1, KiS, KdS);
   
 }
 
@@ -275,7 +278,7 @@ void loop() {
   // Serial.println("desiredFlowPattern:");
   float oldDesiredFlowRate = desiredFlowRate;
 
-  float desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
+  desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
 
   if (oldDesiredFlowRate != desiredFlowRate) {Stop_Flag = 0;} // So the big valve re-checks if it should move every time flow rate changes
 
@@ -323,22 +326,15 @@ void loop() {
   // (end new2)
   // ----------------------------------------------------------
   
-  float total_flow = currentSmallFlowRate + currentBigFlowRate;
+  total_flow= currentSmallFlowRate + currentBigFlowRate;
 
   // float error = desiredFlowRate - (total_flow);  // Calculate error
 
-  // long controlEffort = long(KpS * error);   // Calculate control effort 
-
-  // ----------------------------------------------------------
-  // PID 
-  // ----------------------------------------------------------
-
+  // controlEffort = long(KpS * error);   // Calculate control effort 
 
   myPID.Compute();
-  // controlEffort = -controlEffort;
-
-  long controlEffort = -Output;
   
+  controlEffort = -controlEffort;
   
 
   long newgoalposition = Small_Motor->currentPosition() + controlEffort;
@@ -568,6 +564,9 @@ std::string getPatternFlowRate() {
     getPatternFlowRate(); // Call the function recursively until valid input is received
   }
   return desiredFlowPattern;
+
+  //turn the PID on
+  myPID.SetMode(AUTOMATIC);
 }
 
 
@@ -616,7 +615,7 @@ std::vector<std::vector<float>> stringToArray(const std::string& input) {
 
 float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int current_time_ms) {
  
-    float desiredFlowRate;
+    float desiredFlowRateFunct;
     float flowStartTime = 0;
     float flowEndTime;
     int numRows = flowPattern.size();
@@ -625,10 +624,10 @@ float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int cu
           // Serial.println(flowPattern[i][1]);
           float flowEndTime = flowStartTime + flowPattern[i][1];
           if (current_time_ms >= flowStartTime && current_time_ms <= flowEndTime) {
-            desiredFlowRate = flowPattern[i][0];
+            desiredFlowRateFunct = flowPattern[i][0];
             // Stop_Flag = 0;
-            // std::cout << "desiredFlowRate: " << desiredFlowRate << "; time: " << current_time_ms << std::endl;
-            return desiredFlowRate;
+            // std::cout << "desiredFlowRateFunct: " << desiredFlowRateFunct << "; time: " << current_time_ms << std::endl;
+            return desiredFlowRateFunct;
           }
           else {
             flowStartTime = flowEndTime;
@@ -676,23 +675,4 @@ void restartRun() {
 
   esp_restart(); // Same as pressing EN or power cycling
 
-}
-
-
-
-double getGainConst() {
-  Serial.println("Waiting for Input");
-  while (!scriptRunning && !Serial.available()); // Wait for input
-  String input = Serial.readStringUntil('\n'); // Read input
-  double K_new = atof(input.c_str());
-  // if (liveDesiredFlowRate > 0.0) {
-  Serial.print("New constant:");
-  Serial.println(K_new);
-  scriptRunning = true;
-  // Add your script start code here
-  // } else {
-  //   Serial.println("Please type a number greater than zero to start the script.");
-  //   waitForOnCommand(); // Call the function recursively until valid input is received
-  // }
-  return K_new;
 }
