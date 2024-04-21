@@ -1,3 +1,4 @@
+
 // Written for the 2024 Harvey Mudd College CowBell Labs Clinic Project
 // Contributers: Dominick Quaye, Allison Marten
 // Some code written by ChatGPT
@@ -99,12 +100,12 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 // ----------------------------------------------------------
 // Proportional Gain
 float KpS = 600; // This is my guess based on 45 PSI input 
-float KpB = 60;
+float KpB = 10;
 float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
-float desiredFlowRate = 0; // Change, units SLPM
-int Stop_Flag = 0; // Flag for big valve only going once 
+float desiredFlowRate; // Change, units SLPM
+int Stop_Flag; // Flag for big valve only going once 
 // ----------------------------------------------------------
 
 
@@ -233,15 +234,20 @@ void setup() {
   Serial.println("Input KpS");
   Serial.println("");
   KpS1 = getGainConst();
+  Serial.println("");
   Serial.println("Input KiS");
   Serial.println("");
   KiS = getGainConst();
+  Serial.println("");
   Serial.println("Input KdS");
   Serial.println("");
   KdS = getGainConst();
+  Serial.println("");
+
 
 
   myPID.SetTunings(KpS1, KiS, KdS);
+  myPID.SetOutputLimits(-10000000, 10000000);
   
 }
 
@@ -275,9 +281,12 @@ void loop() {
   // Serial.println("desiredFlowPattern:");
   float oldDesiredFlowRate = desiredFlowRate;
 
-  float desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
+  desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
 
   if (oldDesiredFlowRate != desiredFlowRate) {Stop_Flag = 0;} // So the big valve re-checks if it should move every time flow rate changes
+
+  Serial.print("Stop_Flag = ");
+  Serial.println(Stop_Flag);
 
   if (desiredFlowRate == endFlowRate) {
     std::cout << "FLOW PATTERN ENDED AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
@@ -297,11 +306,19 @@ void loop() {
 
   // P control for the big motor until it is within 10% of the setpoint - 10 SLPM
   // But limit that goal (setpoint-10) to a max of 250 so the goal flow rate can't be higher than 250 SLPM
-  // Serial.println(Stop_Flag);
+
   if (Stop_Flag == 0 && desiredFlowRate > bigMotorCutoff) {
+    // Serial.println("CONDITIONAL TRIGGERED, BIG MOTOR MOVING");
     controlBigMotor(constrain(desiredFlowRate - 10, 0, 250)); // If the big motor goal flow rate is above 250, set it to 250. Otherwise, subtract 10
     Stop_Flag = 1;
     delay(3000);
+  }
+  else if (Stop_Flag == 0 && desiredFlowRate > bigMotorCutoff) {
+     // Close big valve
+    Big_Motor->moveTo(0); 
+    while (Big_Motor->distanceToGo() != 0) {
+      Big_Motor->run();
+    }
   }
 
   float FlowSens_Big_Average = readAndAverageFlowSens_Big();
@@ -332,7 +349,8 @@ void loop() {
   // ----------------------------------------------------------
   // PID 
   // ----------------------------------------------------------
-
+  Input = total_flow;
+  Setpoint = desiredFlowRate;
 
   myPID.Compute();
   // controlEffort = -controlEffort;
@@ -348,9 +366,9 @@ void loop() {
   // Prepare the data as a single formatted string
   String dataPrint = String(time_check_ms) + " , " +
                   String(desiredFlowRate, 3) + " , " +
-                  String(currentBigFlowRate, 3) + " , " +
-                  String(currentSmallFlowRate, 3) + " , " +
-                  String(total_flow, 3) + " , " +
+                  String(currentBigFlowRate, 5) + " , " +
+                  String(currentSmallFlowRate, 5) + " , " +
+                  String(total_flow, 5) + " , " +
                   String(controlEffort) + " , " +
                   String(newgoalposition);
 
@@ -385,7 +403,7 @@ void loop() {
   
 void controlBigMotor(float targetFlow) {
 
-  if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
+  //if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
   float currentBigFlowRate = 0;
   float error = targetFlow; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
   long controlEffort = 0;
@@ -397,6 +415,7 @@ void controlBigMotor(float targetFlow) {
     controlEffort = long(KpB* error);
     controlEffort = -controlEffort;
     newPosition = Big_Motor->currentPosition() + controlEffort;
+    Serial.println(currentBigFlowRate);
 
     // Crash check
     if (newPosition > 0 || newPosition < -18200) { 
@@ -688,7 +707,7 @@ double getGainConst() {
   // if (liveDesiredFlowRate > 0.0) {
   Serial.print("New constant:");
   Serial.println(K_new);
-  scriptRunning = true;
+  //scriptRunning = true;
   // Add your script start code here
   // } else {
   //   Serial.println("Please type a number greater than zero to start the script.");
