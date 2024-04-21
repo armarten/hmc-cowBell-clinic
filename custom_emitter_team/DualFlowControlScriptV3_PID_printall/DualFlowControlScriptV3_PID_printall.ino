@@ -103,8 +103,6 @@ float KpS = 600; // This is my guess based on 45 PSI input
 float KpB = 10;
 float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
-// Desired flow rate
-float desiredFlowRate; // Change, units SLPM
 int Stop_Flag; // Flag for big valve only going once 
 // ----------------------------------------------------------
 
@@ -126,6 +124,33 @@ PID myPID(&Input, &Output, &Setpoint, KpS1, KiS, KdS, DIRECT); // Trying Indirec
 
 // REVERSE: If the Input is above the Setpoint the Output goes HIGHER.
 // If the temperature of the refrigerator is above the desired temperature, turn on the compressor more often or longer to bring the temperature down.
+
+// All variables that will be printed to the CSV
+
+float time_check_ms;
+// Desired flow rate
+float desiredFlowRate; // Change, units SLPM
+float currentBigFlowRate;
+float currentSmallFlowRate;
+float total_flow;
+long controlEffort;
+long newgoalposition;
+
+
+
+//   // Prepare the data as a single formatted string
+// String dataPrint = String(time_check_ms) + " , " +
+//                 String(desiredFlowRate, 3) + " , " +
+//                 String(currentBigFlowRate, 5) + " , " +
+//                 String(currentSmallFlowRate, 5) + " , " +
+//                 String(total_flow, 5) + " , " +
+//                 String(controlEffort) + " , " +
+//                 String(newgoalposition);
+
+// // Print the formatted string in a single serial write operation
+// Serial.println(dataPrint);
+
+
 
 void setup() {
   //--------------------------------------------------------
@@ -248,6 +273,7 @@ void setup() {
 
   myPID.SetTunings(KpS1, KiS, KdS);
   myPID.SetOutputLimits(-10000000, 10000000);
+
   
 }
 
@@ -276,7 +302,7 @@ void loop() {
 
 
   // Check flow pattern and get current flow rate
-  float time_check_ms = millis() - time_start_ms;
+  time_check_ms = millis() - time_start_ms;
   
   // Serial.println("desiredFlowPattern:");
   float oldDesiredFlowRate = desiredFlowRate;
@@ -285,15 +311,20 @@ void loop() {
 
   if (oldDesiredFlowRate != desiredFlowRate) {Stop_Flag = 0;} // So the big valve re-checks if it should move every time flow rate changes
 
-  Serial.print("Stop_Flag = ");
-  Serial.println(Stop_Flag);
+  // Serial.print("Stop_Flag = ");
+  // Serial.println(Stop_Flag);
 
   if (desiredFlowRate == endFlowRate) {
-    std::cout << "FLOW PATTERN ENDED AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
+    String endMessage = "FLOW PATTERN ENDED AT " + String(time_check_ms) + " ms, CLOSING VALVES";
+    Serial.println(endMessage);
+    // Serial.print("FLOW PATTERN ENDED AT ");
+    // std::cout <<  << time_check_ms << " ms, CLOSING VALVES" << std::endl;
     restartRun();  // Infinite loop to halt the program
   }
   else if (desiredFlowRate == failFlowRate) {
-    std::cout << "FAILURE TO MATCH TIME AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
+    // std::cout << "FAILURE TO MATCH TIME AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
+    String failMessage = "FAILURE TO MATCH TIME AT " + String(time_check_ms) + " ms, CLOSING VALVES";
+    Serial.println(failMessage);
 
     restartRun();  // Infinite loop to halt the program
   }
@@ -324,23 +355,24 @@ void loop() {
   float FlowSens_Big_Average = readAndAverageFlowSens_Big();
   float FlowSens_Small_Average = readAndAverageFlowSens_Small();
 
-  float currentBigFlowRate = FlowSens_Big_Average; // Updates Flow 
-  float currentSmallFlowRate = FlowSens_Small_Average; // Updates Flow 
+  currentBigFlowRate = FlowSens_Big_Average; // Updates Flow 
+  currentSmallFlowRate = FlowSens_Small_Average; // Updates Flow 
 
-  // ----------------------------------------------------------
-  // NEW2 Eliminating 0.0333 float on SFM3300
-  // ----------------------------------------------------------
-  if (desiredFlowRate<bigMotorCutoff && abs(currentBigFlowRate) <= 0.04 && abs(currentBigFlowRate) >= 0.02 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
-    // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
-    // For now, will just wipe it out if it's between 0.02 and 0.04
-    // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
-    currentBigFlowRate = 0.0; 
-    }
+  // // ----------------------------------------------------------
+  // // NEW2 Eliminating 0.0333 float on SFM3300
+  // // ----------------------------------------------------------
+  // if (desiredFlowRate<bigMotorCutoff && abs(currentBigFlowRate) <= 0.04 && abs(currentBigFlowRate) >= 0.02 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+  //   // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
+  //   // For now, will just wipe it out if it's between 0.02 and 0.04
+  //   // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
+  //   currentBigFlowRate = 0.0; 
+  // }
+
   // ----------------------------------------------------------
   // (end new2)
   // ----------------------------------------------------------
   
-  float total_flow = currentSmallFlowRate + currentBigFlowRate;
+  total_flow = currentSmallFlowRate + currentBigFlowRate;
 
   // float error = desiredFlowRate - (total_flow);  // Calculate error
 
@@ -355,25 +387,14 @@ void loop() {
   myPID.Compute();
   // controlEffort = -controlEffort;
 
-  long controlEffort = -Output;
+  controlEffort = -Output;
   
   
 
-  long newgoalposition = Small_Motor->currentPosition() + controlEffort;
+  newgoalposition = Small_Motor->currentPosition() + controlEffort;
   long currpos = Small_Motor->currentPosition();
 
-
-  // Prepare the data as a single formatted string
-  String dataPrint = String(time_check_ms) + " , " +
-                  String(desiredFlowRate, 3) + " , " +
-                  String(currentBigFlowRate, 5) + " , " +
-                  String(currentSmallFlowRate, 5) + " , " +
-                  String(total_flow, 5) + " , " +
-                  String(controlEffort) + " , " +
-                  String(newgoalposition);
-
-  // Print the formatted string in a single serial write operation
-  Serial.println(dataPrint);
+  printCSV();
 
   // Future crash Check
   if (newgoalposition > 0  || newgoalposition < -31000) {
@@ -404,7 +425,7 @@ void loop() {
 void controlBigMotor(float targetFlow) {
 
   //if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
-  float currentBigFlowRate = 0;
+  // float currentBigFlowRate = 0;
   float error = targetFlow; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
   long controlEffort = 0;
   long newPosition = 0;
@@ -415,7 +436,8 @@ void controlBigMotor(float targetFlow) {
     controlEffort = long(KpB* error);
     controlEffort = -controlEffort;
     newPosition = Big_Motor->currentPosition() + controlEffort;
-    Serial.println(currentBigFlowRate);
+    // Serial.println(currentBigFlowRate);
+    printCSV();
 
     // Crash check
     if (newPosition > 0 || newPosition < -18200) { 
@@ -445,6 +467,16 @@ float readAndAverageFlowSens_Big() {
   uint8_t  b1 = Wire.read();
   a1 = (a1 << 8) | b1;
   float FlowSens_Big_Average = ((float)a1 - 32768) / 120; // Convert the data from Sensor 1
+
+  // ----------------------------------------------------------
+  // Eliminating 0.0333 float on SFM3300
+  // ----------------------------------------------------------
+  if (desiredFlowRate<bigMotorCutoff && abs(FlowSens_Big_Average) <= 0.04 && abs(FlowSens_Big_Average) >= 0.02 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+    // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
+    // For now, will just wipe it out if it's between 0.02 and 0.04
+    // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
+    FlowSens_Big_Average = 0.0; 
+  }
   return FlowSens_Big_Average;
 }
 
@@ -456,6 +488,14 @@ float readAndAverageFlowSens_Small() {
   uint8_t  b2 = Wire1.read();
   a2 = (a2 << 8) | b2;
   float FlowSens_Small_Average = ((float)a2 - 32768) / 800; // Convert the data from Sensor 2
+
+  // Elimiate small valve float? However maybe not an issue bc nothing changes based on small valve reading, and it's not set to 0
+  // if (abs(FlowSens_Small_Average) <= 0.006 && abs(FlowSens_Small_Average) >= 0.004 ) { // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+  //   // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
+  //   // For now, will just wipe it out if it's between 0.02 and 0.04
+  //   // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
+  //   FlowSens_Small_Average = 0.0; 
+  // }
   return FlowSens_Small_Average;
 }
 
@@ -714,4 +754,28 @@ double getGainConst() {
   //   waitForOnCommand(); // Call the function recursively until valid input is received
   // }
   return K_new;
+}
+
+
+void printCSV() {
+
+  time_check_ms = millis() - time_start_ms;
+  float FlowSens_Big_Average = readAndAverageFlowSens_Big();
+  float FlowSens_Small_Average = readAndAverageFlowSens_Small();
+
+  currentBigFlowRate = FlowSens_Big_Average; // Updates Flow 
+  currentSmallFlowRate = FlowSens_Small_Average; // Updates Flow 
+  total_flow = currentBigFlowRate + currentSmallFlowRate;
+
+  // Prepare the data as a single formatted string
+  String dataPrint = String(time_check_ms) + " , " +
+                  String(desiredFlowRate, 3) + " , " +
+                  String(currentBigFlowRate, 5) + " , " +
+                  String(currentSmallFlowRate, 5) + " , " +
+                  String(total_flow, 5) + " , " +
+                  String(controlEffort) + " , " +
+                  String(newgoalposition);
+
+  // Print the formatted string in a single serial write operation
+  Serial.println(dataPrint);
 }
