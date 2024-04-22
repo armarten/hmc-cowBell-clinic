@@ -99,8 +99,8 @@ bool scriptRunning = false; // Flag to indicate whether the script is running
 // P control Parameter Setup
 // ----------------------------------------------------------
 // Proportional Gain
-float KpS = 600; // This is my guess based on 45 PSI input 
-float KpB = 93;
+// float KpS = 600; // This is my guess based on 45 PSI input 
+// float KpB = 52;
 float bigMotorCutoff = 25.0; // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
@@ -115,10 +115,14 @@ int Stop_Flag; // Flag for big valve only going once
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
+double Setpoint_big, Input_big, Output_big;
 
 //Specify the links and initial tuning parameters
 double KpS1=2, KiS=5, KdS=1;
-PID myPID(&Input, &Output, &Setpoint, KpS1, KiS, KdS, DIRECT); // Trying Indirect because controlEffort = -controlEffort
+PID PIDsmall(&Input, &Output, &Setpoint, KpS1, KiS, KdS, DIRECT); // Trying Indirect because controlEffort = -controlEffort
+
+double KpB1=2, KiB=5, KdB=1;
+PID PIDbig(&Input_big, &Output_big, &Setpoint_big, KpB1, KiB, KdB, DIRECT);
 // http://brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-direction/
 
 // DIRECT: If the Input is above the Setpoint, the Output goes LOWER.
@@ -227,9 +231,10 @@ void setup() {
 
 
   //turn the PID on
-  myPID.SetMode(AUTOMATIC);
+  PIDsmall.SetMode(AUTOMATIC);
+  PIDbig.SetMode(AUTOMATIC);
 
-
+  Serial.println("INPUT GAINS FOR SMALL VALVE");
   Serial.println("");
   Serial.println("Input KpS");
   Serial.println("");
@@ -245,9 +250,28 @@ void setup() {
   Serial.println("");
 
 
+  Serial.println("INPUT GAINS FOR BIG VALVE");
+  Serial.println("");
+  Serial.println("Input KpB");
+  Serial.println("");
+  KpB1 = getGainConst();
+  Serial.println("");
+  Serial.println("Input KiB");
+  Serial.println("");
+  KiB = getGainConst();
+  Serial.println("");
+  Serial.println("Input KdB");
+  Serial.println("");
+  KdB = getGainConst();
+  Serial.println("");
 
-  myPID.SetTunings(KpS1, KiS, KdS);
-  myPID.SetOutputLimits(-10000000, 10000000);
+
+
+  PIDsmall.SetTunings(KpS1, KiS, KdS);
+  PIDsmall.SetOutputLimits(-10000000, 10000000);
+
+  PIDbig.SetTunings(KpB1, KiB, KdB);
+  PIDbig.SetOutputLimits(-10000000, 10000000);
   
 }
 
@@ -349,10 +373,10 @@ void loop() {
   // ----------------------------------------------------------
   // PID 
   // ----------------------------------------------------------
-  Input = total_flow;
-  Setpoint = desiredFlowRate;
+  Input = currentSmallFlowRate;
+  Setpoint = desiredFlowRate - currentBigFlowRate;
 
-  myPID.Compute();
+  PIDsmall.Compute();
   // controlEffort = -controlEffort;
 
   long controlEffort = -Output;
@@ -376,7 +400,7 @@ void loop() {
   Serial.println(dataPrint);
 
   // Future crash Check
-  if (newgoalposition > 0  || newgoalposition < -31000) {
+  if (newgoalposition > 0  || newgoalposition < -64000) {
 
         Serial.println(newgoalposition);
         Serial.println("Crash Course detected!...Motor stopped, Please restart program!");
@@ -405,34 +429,51 @@ void loop() {
 void controlBigMotor(float targetFlow) {
 
   float bigTargetFlow;
-  if (targetFlow <= 260) {
-    bigTargetFlow = 260 * 0.9;
+  if (targetFlow < 260) {
+    bigTargetFlow = targetFlow - 10;
   }
-  else if (targetFlow > 260 && targetFlow <= 275) {
+  else if (targetFlow >= 260 && targetFlow <= 275) {
     bigTargetFlow = 250;
   }
   else {
-    Serial.println("GOAL FLOW RATE TOO HIGH, FLOW MUST BE < 275 SLPM");
+    Serial.println("GOAL FLOW RATE TOO HIGH, FLOW MUST BE <= 275 SLPM");
     restartRun();
   }
-  bigTargetFlow = constrain(targetFlow - 10, 0, 250);
+  // bigTargetFlow = constrain(targetFlow - 10, 0, 250);
 
   //if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
   float currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
-  // float currentBigFlowRate=0;
-  float error = targetFlow - currentBigFlowRateForMotor; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
-  long controlEffort = 0;
-  long newPosition = 0;
+  // Input_big = currentBigFlowRateForMotor;
+  // Setpoint_big = targetFlow;
+  // // float currentBigFlowRate=0;
+  float error = bigTargetFlow - currentBigFlowRateForMotor; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
 
-  while (abs(error) > targetFlow * 0.1) {
+  // PIDbig.Compute();
+
+  // long controlEffort = -Output_big;
+
+  // long controlEffort = -Output;
+  long controlEffort;
+  long newPosition;
+
+  while (abs(error) > 0.1 * bigTargetFlow) {
     currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
-    error = targetFlow - currentBigFlowRateForMotor;
-    controlEffort = long(KpB * error);
-    controlEffort = -controlEffort;
-    newPosition = Big_Motor->currentPosition() + controlEffort;
+    Input_big = currentBigFlowRateForMotor;
+    Setpoint_big = bigTargetFlow;
+    // float currentBigFlowRate=0;
+    // float error = targetFlow - currentBigFlowRateForMotor; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
 
-    Serial.print("targetFlow = ");
-    Serial.println(targetFlow);
+    PIDbig.Compute();
+    controlEffort = -Output_big;
+
+    // currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
+    // error = targetFlow - currentBigFlowRateForMotor;
+    // controlEffort = long(KpB * error);
+    // controlEffort = -controlEffort;
+    newPosition = Big_Motor->currentPosition() + controlEffort;
+    
+    Serial.print("bigTargetFlow = ");
+    Serial.println(bigTargetFlow);
     Serial.print("currentBigFlowRateForMotor = ");
     Serial.println(currentBigFlowRateForMotor);
     Serial.print("error = ");
@@ -455,9 +496,16 @@ void controlBigMotor(float targetFlow) {
     while (Big_Motor->distanceToGo() != 0) {
       Big_Motor->run();
     }
-
     delayMicroseconds(100);
+    currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
+    error = targetFlow - currentBigFlowRateForMotor;
+
+    Serial.print("new currentBigFlowRateForMotor = ");
+    Serial.println(currentBigFlowRateForMotor);
+    Serial.print("new error = ");
+    Serial.println(error);
   }
+
 }
 
   // ----------------------------------------------------------
