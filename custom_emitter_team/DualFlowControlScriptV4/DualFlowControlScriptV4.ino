@@ -515,7 +515,7 @@ void controlBigMotor(float targetFlow) {
 // Flow Measurement Functions
 // ----------------------------------------------------------
 
-float readAndAverageFlowSens_Big() {
+float readAndAverageFlowSens_Big() { // *** Does this actually average?
   delayMicroseconds(100);     // changed from delay(10)
   Wire.requestFrom(0x40, 2);  // Request data from Sensor 1
   uint16_t a1 = Wire.read();
@@ -526,7 +526,7 @@ float readAndAverageFlowSens_Big() {
 }
 
 
-float readAndAverageFlowSens_Small() {
+float readAndAverageFlowSens_Small() { // *** Does this actually average?
   delayMicroseconds(100);      // changed from delay(10)
   Wire1.requestFrom(0x40, 2);  // Request data from Sensor 2
   uint16_t a2 = Wire1.read();
