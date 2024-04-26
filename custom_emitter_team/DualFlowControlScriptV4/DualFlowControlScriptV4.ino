@@ -172,13 +172,13 @@ void setup() {
   // Motor setup (non-Calibration)
 
   Big_Motor = new AccelStepper(motorInterfaceType, 2, 15);
-  Big_Motor->setMaxSpeed(2000);     // Maximum steps per second
-  Big_Motor->setAcceleration(600);  // Steps per second squared
+  Big_Motor->setMaxSpeed(10000);     // Maximum steps per second
+  Big_Motor->setAcceleration(3000);  // Steps per second squared
   Big_Motor->setCurrentPosition(0);
 
   Small_Motor = new AccelStepper(motorInterfaceType, 4, 0);
-  Small_Motor->setMaxSpeed(2000);     // Maximum steps per second
-  Small_Motor->setAcceleration(600);  // Steps per second squared
+  Small_Motor->setMaxSpeed(10000);     // Maximum steps per second
+  Small_Motor->setAcceleration(3000);  // Steps per second squared
   Small_Motor->setCurrentPosition(0);
 
   // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -350,8 +350,8 @@ void loop() {
       Big_Motor->run();
     }
   }
-
-
+  
+  //delay(300);
   float FlowSens_Big_Average = readAndAverageFlowSens_Big(numReadings1);
   float FlowSens_Small_Average = readAndAverageFlowSens_Small(numReadings1);
 
@@ -361,7 +361,7 @@ void loop() {
   // ----------------------------------------------------------
   // NEW2 Eliminating 0.0333 float on SFM3300
   // ----------------------------------------------------------
-  if (desiredFlowRate < bigMotorCutoff && abs(currentBigFlowRate) <= 0.04 && abs(currentBigFlowRate) >= 0.02) {  // SFM3300 increments in 0.033333... and floats a value of 0.033333...
+  if (desiredFlowRate < bigMotorCutoff && abs(currentBigFlowRate) <= 0.04) {  // SFM3300 increments in 0.033333... and floats a value of 0.033333...
     // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
     // For now, will just wipe it out if it's between 0.02 and 0.04
     // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
