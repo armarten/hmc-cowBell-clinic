@@ -22,7 +22,10 @@ int internalLedPin = 2;  //to flash when get data request
 // int buttonPin = 33;
 int thermPin = 34;
 int buttonPin = 25;  // internal pullup, ADC_2,
-int ledPin = 32;
+int ledPinG = 32;
+int ledPinR = 33;
+int ledPinW = 26;
+
 
 // Output variable initialization
 float runTime;
@@ -32,7 +35,7 @@ float therm;
 // Operation variable initialization
 int runningFlag = 0;
 int blinks = 0;
-
+int lightswitch = 0;
 
 // Web server???
 AsyncWebServer server(80);
@@ -46,6 +49,8 @@ const char* password = "Cl@remontI0T";
 const char* PARAM_INPUT_1 = "ctl-power";
 const char* PARAM_INPUT_2 = "read-data";
 const char* PARAM_INPUT_3 = "ctl-blinks";
+const char* PARAM_INPUT_4 = "ctl-lightswitch";
+
 
 void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
@@ -57,24 +62,46 @@ int readButton() {
   return buttonStatus;
 }
 
+void whiteLED(int s) {
+  digitalWrite(ledPinW, s);
+}
+
 
 void ledPattern(int buttonPressed1) {
+  whiteLED(lightswitch);
+  int ledPin = ledPinG;
   int i = 0;
+  int j = 0;
   // int blinks = 5;
   int delayms;
+  // int shrink;
 
   if (buttonPressed1 == 1) {
-    delayms = 250;
+    delayms = 100;
+    // shrink = 250;
   } else {
-    delayms = 1000;
+    delayms = 500;
+    // shrink = 500;
   }
   while (i < blinks) {
+    whiteLED(lightswitch);
     digitalWrite(ledPin, HIGH);
-    delay(delayms);
+    while(j < 100) {
+      delay(delayms/100);
+      whiteLED(lightswitch);
+      j = j+1;
+    }
+    j = 0;
+    // delay(delayms);
     digitalWrite(ledPin, LOW);
-    delay(delayms);
+    while(j < 100) {
+      delay(delayms/100);
+      whiteLED(lightswitch);
+      j = j+1;
+    }
     i++;
   }
+  // delay(delayms + 1000);
 }
 
 
@@ -83,7 +110,9 @@ void setup() {
   Serial.begin(115200);
   Serial.flush();
   pinMode(internalLedPin, OUTPUT);
-  pinMode(ledPin, OUTPUT);
+  pinMode(ledPinG, OUTPUT);
+  pinMode(ledPinR, OUTPUT);
+  pinMode(ledPinW, OUTPUT);
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(thermPin, INPUT);
 
@@ -96,9 +125,13 @@ void setup() {
     esp_restart();
   }
 
+  IPAddress ip = WiFi.localIP();
+
   Serial.println();
   Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(ip);
+  delay(10000);
+  
 
   // Send web page with input fields to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -198,6 +231,24 @@ void setup() {
     }
 
 
+    if (request->hasParam(PARAM_INPUT_4)) {
+      inputMessage = request->getParam(PARAM_INPUT_4)->value();
+      inputParam = PARAM_INPUT_4;
+      // inputNum = inputMessage.toInt();
+      if (inputMessage == "on") {
+        lightswitch = 1;
+      }
+      else if (inputMessage == "off") {
+        lightswitch = 0;
+      }
+      String setString = "The white LED is ";
+      String pinOutputString = setString + inputMessage;
+      Serial.println(pinOutputString);
+      request->send_P(200, "text/plain", pinOutputString.c_str());
+
+    }
+
+
     else {
       inputMessage = "No message sent";
       inputParam = "none";
@@ -222,25 +273,50 @@ void loop() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("DISCONNECTED FROM WIFI!");
-    esp_reset();
+    esp_restart();
   }
 
   while (runningFlag == 0) {
     Serial.print("runningFlag: ");
     Serial.println(runningFlag);
+    whiteLED(lightswitch);
     delay(100);
+
   }
 
 
   while (blinks == 0) {
     Serial.print("blinks: ");
     Serial.println(blinks);
+    whiteLED(lightswitch);
     delay(100);
-  }
 
+
+  }
+  whiteLED(lightswitch);
+
+  int buttonState;
+
+  int j = 0;
+
+  digitalWrite(ledPinR, HIGH);
+
+  while (j < 30) {
+    whiteLED(lightswitch);
+    buttonState = readButton();
+    j = j+1;
+    if (buttonState == 0) {
+      break;
+    }
+    delay(100);
+
+  }
+  
+  whiteLED(lightswitch);
+  digitalWrite(ledPinR, LOW);
+  delay(100);
 
   // buttonStatus = readButton();
-  int buttonState = readButton();
   buttonPressed = -1 * (buttonState - 1);
   runTime = millis();
   // char thermbuff[10];
@@ -255,3 +331,35 @@ void loop() {
 
   delay(100);
 }
+
+
+
+
+// void ledPattern(int buttonPressed1) {
+//   int i = 0;
+//   // int blinks = 5;
+//   int onms = 1000;
+//   int offms = 500;
+//   int shrinkon = 250;
+//   int shrinkoff = 100;
+//   int blinkPin;
+
+//   if (buttonPressed1 == 1) {
+//     // delayms = 1000;
+//     // shrink = 250;
+//     blinkPin = ledPinG;
+//   } else {
+//     // delayms = 5000;
+//     // shrink = 500;
+//     blinkPin = ledPinR;
+//   }
+//   while (i < blinks) {
+//     digitalWrite(blinkPin, HIGH);
+//     delay(onms - (shrinkon*i));
+//     digitalWrite(blinkPin, LOW);
+//     delay(offms - (shrinkoff*i));
+//     i++;
+//   }
+//   // delay(delayms + 1000);
+// }
+

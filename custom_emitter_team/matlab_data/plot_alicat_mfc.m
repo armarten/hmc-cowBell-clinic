@@ -1,7 +1,7 @@
 clear;
 close all hidden;
 
-file_names = ["inline_parallel_250SLPM","inline_parallel_250SLPM_2"];
+file_names = ["parallel_100_alicat250"];
 % comb_data = table(["pres";"tempc";"vflow";"mflow";"comp"]);
 
 % Define column headers
@@ -42,7 +42,10 @@ samp_period = 50E-3; % s
 % samp_rate = 1 / samp_period;
 times = samp_period .* (1:height(comb_data));
 figure(70)
-plot(times, comb_data.mflow)
+plot(times, comb_data.mflow, "LineWidth",3)
+hold on;
+yline(100,"Color","red")
+hold off;
 grid on;
 grid minor;
 ylabel("Mass Flow Rate (SLPM)")
