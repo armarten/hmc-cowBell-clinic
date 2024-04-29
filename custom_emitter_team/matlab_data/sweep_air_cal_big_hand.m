@@ -1,9 +1,8 @@
 %% Get data to files
 close all hidden;
 clear;
-close all hidden;
-name_ali = 'investigate_100_260_alicat250';
-name_esp = 'investigate_100_260_esp';
+name_ali = 'sweep_air_big_hand_alicat250';
+name_esp = 'sweep_air_big_hand_esp';
 file_loc_ali = append('arduino_output_save/',name_ali);
 file_loc_esp = append('arduino_output_save/',name_esp);
 
@@ -14,89 +13,87 @@ samp_per = 50E-3;
 
 
 Tali = readtable(file_loc_ali); 
-Tesp = readtable(file_loc_esp, MissingRule="omitrow"); 
+Tesp = readtable(file_loc_esp); 
 
 
 Tali = renamevars(Tali,["Var1","Var2","Var3","Var4","Var5","Var6"], ...
                 ["pres","temp","vflow","mflow","stpt","comp"]);
-Tesp = renamevars(Tesp,["Var1", "Var2", "Var3", "Var4"], ...
-                ["time_ms", "flow33","flow34", "total"]);
+% Tesp = renamevars(Tesp,["Var1", "Var2", "Var3", "Var4"], ...
+%                 ["time_ms", "flow33","flow34", "total"]);
 
-
-%% Test
-% values = [];
-% 
-% figure(90)
-% n = 11;
-% flows = Tesp.flow_3300
-% 
-% plot(Tesp.time_ms,Tesp.flow_3300)
-% hold on;
-% 
-% cutoff = floor(length(flows)/n);
-% flows1 = flows(1:cutoff*n);
-% times1 = times(1:cutoff*n);
-% flows2 = reshape(flows1, [], n);
-% times2 = reshape(times1, [], n);
-% flows3 = mean(flows2, 1);
-% times3 = mean(times2, 1);
-% titles = [titles, n]
-% plot(times3, flows3);
-% hold off;
 
 
 
 %% Cull bad rows, isolate data
 
+% Get rid of slope parts
+differences = (Tesp.time_ms(2:height(Tesp)) - Tesp.time_ms(1:height(Tesp)-1));
+
+
+
 % Tesp = rmmissing(Tesp);
-% Tesp(1:8,:) = [];
+% Tesp([1:48 3153:end],:) = [];
+% Tali([1:48 3153:end],:) = [];
+
 % Tesp([1:1583+8 7886:height(Tesp)],:) = [];
 % Tesp.time_ms = Tesp.time_ms - min(Tesp.time_ms);
 
 
-
-Tesp([1:402], :) = [];
-Tali([1:1133], :) = [];
 
 figure(64)
 plot(Tali.mflow)
 % plot(Tali.Var1,Tali.Var4)
 hold on;
 % plot(Tesp.flow33)
-plot(Tesp.total)
+plot(Tesp.mflow)
 hold off;
-legend("Alicat", "3300", "3400")
+legend("Alicat", Tesp.sensor(1))
 grid on;
 grid minor;
 
-spikes = [631 957 1703 1884 3503 3836 3854 4577 4717 5407 5739 6074 6240 6633 6847 7594 7685];
+% spikes = [631 957 1703 1884 3503 3836 3854 4577 4717 5407 5739 6074 6240 6633 6847 7594 7685];
 
-before = 30;
-after = 30;
-rmv_rows = [];
-
-for j = spikes
-    rmv_rows = [rmv_rows,  (j - before : j + after)];
-    % Tesp(spikes - before : spikes + after,:) = []
-    % Tali(spikes - before : spikes + after,:) = []
-end
-
-Tali(rmv_rows,:) = [];
-Tesp(rmv_rows,:) = [];
-Tali(1:10,:) = [];
-Tesp(1:5,:) = [];
-
-Tali(8788:end,:) = [];
-Tesp(8788:end,:) = [];
-
-
-Tali.time_ms = (transpose((1:height(Tali))) .* 70) + min(Tesp.time_ms);
+% before = 30;
+% after = 30;
+% rmv_rows = [];
 % 
-% rowsToDeleteTesp = Tesp(:,2) < 94.815;
-% rowsToDeleteTali = Tali(:,4) < 94.815;
+% for j = spikes
+%     rmv_rows = [rmv_rows,  (j - before : j + after)];
+%     % Tesp(spikes - before : spikes + after,:) = []
+%     % Tali(spikes - before : spikes + after,:) = []
+% end
+% 
+% Tali(rmv_rows,:) = [];
+% Tesp(rmv_rows,:) = [];
+% Tali(1:10,:) = [];
+% Tesp(1:5,:) = [];
+% 
+% Tali(8788:end,:) = [];
+% Tesp(8788:end,:) = [];
+% 
+%% Time for Tali
+Tali.time_ms = (transpose((0:height(Tali)-1)) .* samp_per*10^3) + min(Tesp.time_ms);
+% 
+
+
+% rowsToDeleteTesp = Tesp(:,1) < 50;
+% % rowsToDeleteTali = Tali(:,4) < 50;
 % cutoffCut = 94;
 % Tesp(rowsToDeleteTesp,:) = []
-% Tali(rowsToDeleteTali,:) = []
+% Tali(rowsToDeleteTesp,:) = []
+
+figure(78)
+plot(Tali.time_ms, Tali.mflow)
+% plot(Tali.Var1,Tali.Var4)
+hold on;
+% plot(Tesp.flow33)
+plot(Tesp.time_ms, Tesp.mflow)
+hold off;
+legend("Alicat", Tesp.sensor(1))
+grid on;
+grid minor;
+
+
 
 
 % Tali = Tali(abs(Tali.mflow)>cutoffCut,:)
@@ -168,7 +165,7 @@ Tali.time_ms = (transpose((1:height(Tali))) .* 70) + min(Tesp.time_ms);
 % 
 
 x33 = Tali.mflow;
-y33 = ((Tesp.total - Tali.mflow) ./ Tali.mflow ).* 100;
+y33 = ((Tesp.mflow - Tali.mflow) ./ Tali.mflow ).* 100;
 
 %% Plotting
 figure(65)
@@ -176,9 +173,9 @@ plot(Tali.mflow)
 % plot(Tali.Var1,Tali.Var4)
 hold on;
 % plot(Tesp.flow33)
-plot(Tesp.total)
+plot(Tesp.mflow)
 hold off;
-legend("Alicat", "3300", "3400")
+legend("Alicat", Tesp.sensor(1))
 grid on;
 grid minor;
 
@@ -188,9 +185,9 @@ plot(Tali.time_ms, Tali.mflow)
 hold on;
 % plot(Tesp.time_ms, Tesp.flow33)
 % plot(Tesp.time_ms, Tesp.flow34)
-plot(Tesp.time_ms, Tesp.total)
+plot(Tesp.time_ms, Tesp.mflow)
 hold off;
-legend("Alicat", "3300", "3400", "Total")
+legend("Alicat", "Sensirion")
 grid on;
 grid minor;
 
@@ -244,7 +241,7 @@ Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynom
 plot(x33, polyval(Fit33,x33),"LineWidth",3)
 % yline([10 -10],"--");
 % ylim([-25 25]);
-xlim([90 250])
+% xlim([0 30])
 ylim([-15 20]);
 
 hold off;
@@ -261,7 +258,7 @@ hold on;
 Fit33 = polyfit(x33, y33 ./ 100 .* Tali.mflow, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 plot(x33, polyval(Fit33,x33),"LineWidth",3)
 % yline([10 -10],"--");
-xlim([90 250])
+% xlim([0 30])
 hold off;
 grid on;
 grid minor;

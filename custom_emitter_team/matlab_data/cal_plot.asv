@@ -90,7 +90,7 @@ Tali(8788:end,:) = [];
 Tesp(8788:end,:) = [];
 
 
-Tali.time_ms = (transpose((1:height(Tali))) .* 70) + min(Tesp.time_ms);
+Tali.time_ms = (transpose((1:height(Tali))) .* 50) + min(Tesp.time_ms);
 % 
 % rowsToDeleteTesp = Tesp(:,2) < 94.815;
 % rowsToDeleteTali = Tali(:,4) < 94.815;
@@ -160,15 +160,15 @@ Tali.time_ms = (transpose((1:height(Tali))) .* 70) + min(Tesp.time_ms);
 % Tesp33no0 = Tespmatch33(keepme33);
 % Tesp34no0 = Tespmatch34(keepme34);
 % 
-% x33 = Tali.mflow;
-% y33 = (Tesp.flow33-Tali.mflow)./Tali.mflow*100;
+x33 = Tali.mflow;
+y33 = (Tesp.flow33-Tali.mflow)./Tali.mflow*100;
 % 
 % x34 = Tali34mflowCut;
 % y34 = (Tesp34no0-Tali34mflowCut)./Tali34mflowCut*100;
 % 
 
-x33 = Tali.mflow;
-y33 = ((Tesp.total - Tali.mflow) ./ Tali.mflow ).* 100;
+x33 = Tali.mflow
+y33 = Tesp.flow33 0
 
 %% Plotting
 figure(65)
@@ -241,32 +241,15 @@ figure(83)
 scatter(x33, y33);
 hold on;
 Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(x33, polyval(Fit33,x33),"LineWidth",3)
-% yline([10 -10],"--");
-% ylim([-25 25]);
-xlim([90 250])
-ylim([-15 20]);
-
-hold off;
-grid on;
-grid minor;
-title("Error of SFM3300 vs True Flow Rate", FontSize=34)
-ylabel("% Error")
-xlabel("Alicat Mass Flow Reading (SLPM)")
-
-
-figure(86)
-scatter(x33, y33 ./ 100 .* Tali.mflow);
-hold on;
-Fit33 = polyfit(x33, y33 ./ 100 .* Tali.mflow, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(x33, polyval(Fit33,x33),"LineWidth",3)
-% yline([10 -10],"--");
-xlim([90 250])
+plot(x33, polyval(Fit33,x33))
+yline([10 -10],"--");
+ylim([-25 25]);
+xlim([0 250])
 hold off;
 grid on;
 grid minor;
 title("Error of SFM3300 vs True Flow Rate")
-ylabel("Offset Error (SLPM)")
+ylabel("% Error")
 xlabel("Alicat Mass Flow Reading (SLPM)")
 
 % figure(84)

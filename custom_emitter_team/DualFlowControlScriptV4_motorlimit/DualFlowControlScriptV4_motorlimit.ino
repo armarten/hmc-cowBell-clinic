@@ -47,15 +47,14 @@ float endFlowRate = 12345678910;   // Dummy variable to check if flow rate check
 std::string getPatternFlowRate();
 std::vector<std::vector<float>> stringToArray(const std::string& input);
 float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int current_time_ms);
-void controlBigMotor(float targetFlow);
 float readAndAverageFlowSens_Big(int numReadings1);
 float readAndAverageFlowSens_Small(int numReadings1);
-void performMotorOperation(int stepPin, int dirPin, float threshold);
-float readAndAverage();
+void performMotorOperation(int stepPin, int dirPin, String which_sensor, int incrementSteps);
 float calculateMean(float arr[], int n);
 float calculateStandardDeviation(float arr[], int n, float mean);
 void waitForOnCommand();
 void restartRun();
+String whichSensor();
 
 // Forward variable declaration
 std::vector<std::vector<float>> desiredFlowPattern;
@@ -66,9 +65,9 @@ int firstLoopFlag;
 //----------------------------------------------------------
 // Motor Control Setup
 //----------------------------------------------------------
-#include <AccelStepper.h>   // For Stepper
-AccelStepper* Big_Motor;    // Pointer
-AccelStepper* Small_Motor;  // Pointer
+// #include <AccelStepper.h>   // For Stepper
+// AccelStepper* Big_Motor;    // Pointer
+// AccelStepper* Small_Motor;  // Pointer
 #define motorInterfaceType 1
 #define currentPin 34
 #define monitorPin 13
@@ -171,15 +170,15 @@ void setup() {
 
   // Motor setup (non-Calibration)
 
-  Big_Motor = new AccelStepper(motorInterfaceType, 2, 15);
-  Big_Motor->setMaxSpeed(10000);     // Maximum steps per second
-  Big_Motor->setAcceleration(3000);  // Steps per second squared
-  Big_Motor->setCurrentPosition(0);
+  // Big_Motor = new AccelStepper(motorInterfaceType, 2, 15);
+  // Big_Motor->setMaxSpeed(5000);     // Maximum steps per second
+  // Big_Motor->setAcceleration(3000);  // Steps per second squared
+  // Big_Motor->setCurrentPosition(0);
 
-  Small_Motor = new AccelStepper(motorInterfaceType, 4, 0);
-  Small_Motor->setMaxSpeed(10000);     // Maximum steps per second
-  Small_Motor->setAcceleration(3000);  // Steps per second squared
-  Small_Motor->setCurrentPosition(0);
+  // Small_Motor = new AccelStepper(motorInterfaceType, 4, 0);
+  // Small_Motor->setMaxSpeed(5000);     // Maximum steps per second
+  // Small_Motor->setAcceleration(3000);  // Steps per second squared
+  // Small_Motor->setCurrentPosition(0);
 
   // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -240,38 +239,6 @@ void setup() {
   PIDbig.SetMode(AUTOMATIC);
   PIDbigsmall.SetMode(AUTOMATIC);
 
-
-  // Serial.println("INPUT GAINS FOR SMALL VALVE");
-  // Serial.println("");
-  // Serial.println("Input KpS");
-  // Serial.println("");
-  // KpS1 = getGainConst();
-  // Serial.println("");
-  // Serial.println("Input KiS");
-  // Serial.println("");
-  // KiS = getGainConst();
-  // Serial.println("");
-  // Serial.println("Input KdS");
-  // Serial.println("");
-  // KdS = getGainConst();
-  // Serial.println("");
-
-
-  // Serial.println("INPUT GAINS FOR BIG VALVE");
-  // Serial.println("");
-  // Serial.println("Input KpB");
-  // Serial.println("");
-  // KpB1 = getGainConst();
-  // Serial.println("");
-  // Serial.println("Input KiB");
-  // Serial.println("");
-  // KiB = getGainConst();
-  // Serial.println("");
-  // Serial.println("Input KdB");
-  // Serial.println("");
-  // KdB = getGainConst();
-  // Serial.println("");
-
   KpB1 = 60;
   KiB = 0.002;
   KdB = 2;
@@ -302,126 +269,132 @@ void loop() {
   // ----------------------------------------------------------
   // NEW1 Checking pattern array to get current flow rate
   // ----------------------------------------------------------
+  int currPos;
+  int newPos;
+  float flow;
+
 
 
   if (firstLoopFlag == 0) {
     desiredFlowPatternString = getPatternFlowRate();               // Get user-inputted string of flow rates and durations, ex. "[200,15;0.03,5;70,10]"
     desiredFlowPattern = stringToArray(desiredFlowPatternString);  // Convert string to actual array
     Serial.println("data_begin");
-    Serial.println("time_ms , set_point , flow_3300 , flow_3400 , total , control_effort , new_goal_position");
-    delay(3000); // **** Give time to switch to data collection program, DELETE later if needed
+    // Serial.println("time_ms , set_point , flow_3300 , flow_3400 , total , control_effort , new_goal_position");
+    delay(1000); // **** Give time to switch to data collection program, DELETE later if needed
     time_start_ms = millis();
   }
 
+  String which_sensor = whichSensor();
 
-  // Check flow pattern and get current flow rate
-  float time_check_ms = millis() - time_start_ms;
+  int n = 0;
+  int stepsPerTurn = 3200;
+  int incrementSteps;
+  int crashFlag = 1;
+  int delayBetween;
+  float currentFlowRate;
+  String dataPrintSweep;
+  float flowRateRead;
+  delay(1000);
+  Serial.println(3);
+  delay(2000);
+  Serial.println(2);
+  delay(2000);
+  Serial.println(1);
+  delay(2000);
+  Serial.print("Averaging window:");
+  Serial.println(numReadings1);
+  Serial.println("time_ms , sensor , currpos , mflow");
 
-  // Serial.println("desiredFlowPattern:");
-  float oldDesiredFlowRate = desiredFlowRate;
 
-  desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
-
-  if (oldDesiredFlowRate != desiredFlowRate) { Stop_Flag = 0; }  // So the big valve re-checks if it should move every time flow rate changes
-
-  if (desiredFlowRate == endFlowRate) {
-    std::cout << "FLOW PATTERN ENDED AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
-    restartRun();  // Infinite loop to halt the program
-  } else if (desiredFlowRate == failFlowRate) {
-    std::cout << "FAILURE TO MATCH TIME AT " << time_check_ms << " ms, CLOSING VALVES" << std::endl;
-
-    restartRun();  // Infinite loop to halt the program
-  }
-
-  // ----------------------------------------------------------
-  // (end new1)
-  // ----------------------------------------------------------
-
-  // This first if statment moves the big motor to open the big valve for any desired flow above 25 SLM
-
-  // P control for the big motor until it is within 10% of the setpoint - 10 SLPM
-  // But limit that goal (setpoint-10) to a max of 250 so the goal flow rate can't be higher than 250 SLPM
-
-  if (Stop_Flag == 0 && desiredFlowRate >= bigMotorCutoff) {
-    // Serial.println("CONDITIONAL TRIGGERED, BIG MOTOR MOVING");
-    controlBigMotor(desiredFlowRate);  // If the big motor goal flow rate is above 250, set it to 250. Otherwise, subtract 10
-    Stop_Flag = 1;
-    delay(3000);
-  } else if (Stop_Flag == 0 && desiredFlowRate < bigMotorCutoff) {
-    // Close big valve
-    Big_Motor->moveTo(0);
-    while (Big_Motor->distanceToGo() != 0) {
-      Big_Motor->run();
+  while (crashFlag)  { 
+    if (n < 5 * stepsPerTurn) {
+      incrementSteps = 400;
+      delayBetween = 3000;
     }
+    else if (n >= 5 * stepsPerTurn && n <= 8.25 * stepsPerTurn) { // Cutoff when flow meter would be at 26 (max reading for 20 SLPM alicat)
+      incrementSteps = 800;
+      delayBetween = 3000;
+    }
+    else if (n > 8.25 * stepsPerTurn) {
+      incrementSteps = 0;
+      delayBetween = 3000;
+      crashFlag = 1;
+      Serial.print(n);
+      Serial.println(" steps done, stopping.");
+      esp_restart();
+    }
+
+    n += incrementSteps;
+    
+    // currPos = Small_Motor->currentPosition();
+    // newPos = currPos - incrementSteps;
+    // Small_Motor->moveTo(newPos);
+
+    // int motorSteps = 0;
+    // int move_start_time = millis();
+
+    // while (Small_Motor->distanceToGo() != 0) {
+    //   Small_Motor->run();
+
+    //   if ((millis() - move_start_time) % 50 == 0) {
+    //     sweepDataAndPrint(which_sensor);
+    //   }
+    //   // Serial.println(motorSteps);
+
+    //   // motorSteps ++;
+    // }
+
+    int dpoints = 0;
+
+    performMotorOperation(4, 0, which_sensor, incrementSteps);
+    
+    int timerVal;
+    int samps1 = 0;
+    float flow;
+    
+    while (dpoints <= delayBetween / numReadings1) {
+      flow = 0;
+      timerVal = millis();
+      samps1 = 0;
+      while (samps1 <= numReadings1) {
+        // get data to print
+        if (which_sensor == "b") {
+          flow += readAndAverageFlowSens_Big(1);
+          delay(0.2);
+        }
+        else if (which_sensor == "s") {
+          flow += readAndAverageFlowSens_Small(1);
+          delay(0.2);
+        }
+        samps1 ++;
+      }
+      float flowAvg = flow/numReadings1;
+      String dataToPrint = String(millis()) + " , " + which_sensor + " , " + String(flowAvg, 6);
+      Serial.println(dataToPrint);        
+      dpoints ++;
+    }
+/////
+  int timeStartStop = micros();
+  while micros() < (timeStartStop + (1000*delayBetween))) {
+    
+    if (which_sensor == "b") {
+      flow += readAndAverageFlowSens_Big(1);
+    }
+    else if (which_sensor == "s") {
+      flow += readAndAverageFlowSens_Small(1);
+    }
+    
+    if (samps % numReadings == 0) {
+      flowAvg = flow / numReadings;
+      String dataToPrint = String(millis()) + " , " + which_sensor + " , " + String(flowAvg, 6);
+      Serial.println(dataToPrint);
+      flow = 0;
+
+
   }
-  
-  //delay(300);
-  float FlowSens_Big_Average = readAndAverageFlowSens_Big(numReadings1);
-  float FlowSens_Small_Average = readAndAverageFlowSens_Small(numReadings1);
 
-  float currentBigFlowRate = FlowSens_Big_Average;      // Updates Flow
-  float currentSmallFlowRate = FlowSens_Small_Average;  // Updates Flow
-
-  // ----------------------------------------------------------
-  // NEW2 Eliminating 0.0333 float on SFM3300
-  // ----------------------------------------------------------
-  if (desiredFlowRate < bigMotorCutoff && abs(currentBigFlowRate) <= 0.04) {  // SFM3300 increments in 0.033333... and floats a value of 0.033333...
-    // Potential issue: how to differentiate an actual 0.033333 leak from a float? Check that before and after values are 0? Don't want to have to save old values...
-    // For now, will just wipe it out if it's between 0.02 and 0.04
-    // The first three values SFM3300 can give are 0, 0.0333333 and 0.0666667
-    currentBigFlowRate = 0.0;
-  }
-  // ----------------------------------------------------------
-  // (end new2)
-  // ----------------------------------------------------------
-
-  float total_flow = currentSmallFlowRate + currentBigFlowRate;
-
-  // float error = desiredFlowRate - (total_flow);  // Calculate error
-
-  // long controlEffort = long(KpS * error);   // Calculate control effort
-
-  // ----------------------------------------------------------
-  // PID
-  // ----------------------------------------------------------
-  Input = currentSmallFlowRate;
-  Setpoint = desiredFlowRate - currentBigFlowRate;
-
-  PIDsmall.Compute();
-  // controlEffort = -controlEffort;
-
-  long controlEffort = -Output;
-
-
-
-  long newgoalposition = Small_Motor->currentPosition() + controlEffort;
-  long currpos = Small_Motor->currentPosition();
-
-
-  // Prepare the data as a single formatted string
-  String dataPrint = String(time_check_ms) + " , " + String(desiredFlowRate, 6) + " , " + String(currentBigFlowRate, 6) + " , " + String(currentSmallFlowRate, 6) + " , " + String(total_flow, 6) + " , " + String(controlEffort) + " , " + String(newgoalposition);
-
-  // Print the formatted string in a single serial write operation
-  Serial.println(dataPrint);
-
-  // Future crash Check
-  if (newgoalposition > 0 || newgoalposition < -64000) {
-
-    Serial.println(newgoalposition);
-    Serial.println("Crash Course detected for small valve!...Motor stopped, Please restart program!");
-    restartRun();  // Infinite loop to halt the program
   }
 
-  Small_Motor->moveTo(newgoalposition);  // Set the stepper to the new position
-  // Perform the steps
-  while (Small_Motor->distanceToGo() != 0) {
-    Small_Motor->run();
-  }
-
-
-  firstLoopFlag = 1;
-
-  delayMicroseconds(100);  // Just to give it some rest, perhaps remove?
 }
 
 
@@ -429,95 +402,28 @@ void loop() {
 // P-Control The Big Motor!!!
 // ----------------------------------------------------------
 
-void controlBigMotor(float targetFlow) {
-  float bigTargetFlow;
-  float tolerance;
-  if (targetFlow < 260) {
-    bigTargetFlow = targetFlow - 10;
-    tolerance = 0.1;
-  } else if (targetFlow >= 260 && targetFlow <= 275) {
-    bigTargetFlow = 250;
-    tolerance = 0.02; //Places us at minimum 245 because small valve can then do 245+30 = 275
-  } else {
-    Serial.println("GOAL FLOW RATE TOO HIGH, FLOW MUST BE <= 275 SLPM");
-    restartRun();
-  }
-  // bigTargetFlow = constrain(targetFlow - 10, 0, 250);
 
-  //if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
-  float currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
-  // Input_big = currentBigFlowRateForMotor;
-  // Setpoint_big = targetFlow;
-  // // float currentBigFlowRate=0;
-  float error = bigTargetFlow - currentBigFlowRateForMotor;  // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
-
-  // PIDbig.Compute();
-
-  // long controlEffort = -Output_big;
-
-  // long controlEffort = -Output;
-  long controlEffort;
-  long newPosition;
-
-  while (abs(error) > tolerance * bigTargetFlow) {
-    currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
-    Input_big = currentBigFlowRateForMotor;
-    Setpoint_big = bigTargetFlow;
-    // float currentBigFlowRate=0;
-    // float error = targetFlow - currentBigFlowRateForMotor; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
-    if (targetFlow <= 50) {
-      PIDbigsmall.Compute();
-      controlEffort = -Output_bigsmall;
-    } else if (targetFlow > 50) {
-      PIDbig.Compute();
-      controlEffort = -Output_big;
-    }
-
-
-    // currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
-    // error = targetFlow - currentBigFlowRateForMotor;
-    // controlEffort = long(KpB * error);
-    // controlEffort = -controlEffort;
-    newPosition = Big_Motor->currentPosition() + controlEffort;
-
-    // Serial.print("bigTargetFlow = ");
-    // Serial.println(bigTargetFlow);
-    // Serial.print("currentBigFlowRateForMotor = ");
-    // Serial.println(currentBigFlowRateForMotor);
-    // Serial.print("error = ");
-    // Serial.println(error);
-    // Serial.print("controlEffort = ");
-    // Serial.println(controlEffort);
-    // Serial.print("newPosition = ");
-    // Serial.println(newPosition);
-    // Serial.println(currentBigFlowRateForMotor);
-
-    // Crash check
-    if (newPosition > 0 || newPosition < -60000) {
-      Serial.println(newPosition);
-      Serial.println("Crash Course detected for big valve!...Motor stopped.");
-      restartRun();
-    }
-
-    Big_Motor->moveTo(newPosition);
-
-    while (Big_Motor->distanceToGo() != 0) {
-      Big_Motor->run();
-    }
-    delayMicroseconds(100);
-    currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
-    error = bigTargetFlow - currentBigFlowRateForMotor;
-
-    // Serial.print("new currentBigFlowRateForMotor = ");
-    // Serial.println(currentBigFlowRateForMotor);
-    // Serial.print("new error = ");
-    // Serial.println(error);
-  }
-}
 
 // ----------------------------------------------------------
 // Flow Measurement Functions
 // ----------------------------------------------------------
+
+void sweepDataAndPrint(String which_sensor) {
+  float timerVal = millis();
+  float flow;
+  
+  // get data to print
+  if (which_sensor == "b") {
+    flow = readAndAverageFlowSens_Big(numReadings1);
+  }
+  else if (which_sensor == "s") {
+    flow = readAndAverageFlowSens_Small(numReadings1);
+  }
+  String dataToPrint = String(millis()) + " , " + which_sensor + " , " + " , " + String(flow, 6);
+  Serial.println(dataToPrint);
+
+  delay(50 - (millis()-timerVal));
+}
 
 float readAndAverageFlowSens_Big(int numReadings33) { // *** Does this actually average?
 
@@ -527,7 +433,7 @@ float readAndAverageFlowSens_Big(int numReadings33) { // *** Does this actually 
   int samps;
 
   for (samps = 0; samps < numReadings33; samps++) {
-    delay(1); // Needed
+    delay(0.8); // Needed
     Wire.requestFrom(0x40, 2);  // Request data from Sensor 1
     uint16_t a1 = Wire.read();
     uint8_t b1 = Wire.read();
@@ -549,7 +455,7 @@ float readAndAverageFlowSens_Small(int numReadings34) {
   int samps;
 
   for (samps = 0; samps < numReadings34; samps++) {
-    delay(1); // Needed
+    delay(0.8); // Needed
     Wire1.requestFrom(0x40, 2);  // Request data from Sensor 2
     uint16_t a2 = Wire1.read();
     uint8_t b2 = Wire1.read();
@@ -571,54 +477,55 @@ float readAndAverageFlowSens_Small(int numReadings34) {
 // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-void performMotorOperation(int stepPin, int dirPin, float threshold) {
-  while (true) {  // Start of the infinite loop
+void performMotorOperation(int stepPin, int dirPin, String which_sensor, int incrementSteps) {
+  
+  int samps = 1;
+  float flow = 0;
+  int numReadings = 50;
+  int numSteps = 0;
+  float flowAvg;
+  unsigned long timerVal;
+
+  while (numSteps <= incrementSteps/2) {  // Start of the  loop
     // Generate a step pulse
     digitalWrite(stepPin, HIGH);
     digitalWrite(monitorPin, HIGH);
-    delayMicroseconds(1000);  // Pulse duration
+    delayMicroseconds(pulseDelay);  // Pulse duration
+    digitalWrite(stepPin, LOW);
+    digitalWrite(monitorPin, LOW);
+    timerVal = micros();  
+    // get data to print
+    if (which_sensor == "b") {
+      flow += readAndAverageFlowSens_Big(1);
+    }
+    else if (which_sensor == "s") {
+      flow += readAndAverageFlowSens_Small(1);
+    }
+    delayMicroseconds(pulseDelay - (micros() - timerVal));  // Maintain PWM timing
+
+    digitalWrite(stepPin, HIGH);
+    digitalWrite(monitorPin, HIGH);
+    delayMicroseconds(pulseDelay);  // Pulse duration
     digitalWrite(stepPin, LOW);
     digitalWrite(monitorPin, LOW);
 
-    unsigned long timerVal = micros();
 
-    // Read and average the current sensor value
-    float voltage = readAndAverage();
-
-    // Check if we have collected less than 100 values
-    if (valueCount < 100) {
-      voltageValues[valueCount++] = voltage;
+    if (samps % (numReadings/2) == 0) {
+      flowAvg = flow / numReadings;
+      String dataToPrint = String(millis()) + " , " + which_sensor + " , " + String(flowAvg, 6);
+      Serial.println(dataToPrint);
+      flow = 0;
     }
 
-    // Once 100 values are collected, calculate and print the standard deviation
-    if (valueCount == 100) {
-      float mean = calculateMean(voltageValues, 100);
-      float standardDeviation = calculateStandardDeviation(voltageValues, 100, mean);
-      // Serial.println(standardDeviation);
-
-      // Update circular buffer with the latest standard deviation value
-      stdDevHistory[stdDevHistoryIndex] = standardDeviation;
-      stdDevHistoryIndex = (stdDevHistoryIndex + 1) % 5;  // Move to the next position in a circular manner
-
-      // Check if all of the last 5 standard deviation values are greater than the threshold
-      bool allGreaterThanThreshold = true;
-      for (int i = 0; i < 5; i++) {
-        if (stdDevHistory[i] <= threshold) {  // Modified to use threshold parameter
-          allGreaterThanThreshold = false;
-          break;
-        }
-      }
-
-      if (allGreaterThanThreshold) {
-        valueCount = 0;
-        break;  // Exit the loop if all of the last 5 values are greater than the threshold
-      }
-
-      valueCount = 0;  // Reset the counter for the next set of readings
-    }
+    samps ++;
+    numSteps ++;
+    // Serial.print("numSteps: ");
+    // Serial.println(numSteps);
 
     delayMicroseconds(pulseDelay - (micros() - timerVal));  // Maintain PWM timing
   }                                                         // End of the infinite loop
+
+  // Serial.println("Done with moving motor");
 }
 
 
@@ -692,6 +599,20 @@ std::string getPatternFlowRate() {
     getPatternFlowRate();  // Call the function recursively until valid input is received
   }
   return desiredFlowPattern;
+}
+
+
+String whichSensor() {
+  Serial.println("");
+  Serial.println("b for big sensor s for small sensor.");
+ 
+  while (!scriptRunning && !Serial.available())
+    ;  // Wait for input
+
+  String inputString = Serial.readStringUntil('\n');  // Read input
+  String which_sensor = inputString;
+  
+  return which_sensor;
 }
 
 
@@ -783,22 +704,22 @@ void printArray(const std::vector<std::vector<float>>& array) {
 
 
 void restartRun() {
-  Serial.println("Closing Motors to Restart");
+  // Serial.println("Closing Motors to Restart");
 
-  // Close valves
-  Big_Motor->moveTo(0);
-  while (Big_Motor->distanceToGo() != 0) {
-    Big_Motor->run();
-  }
+  // // Close valves
+  // Big_Motor->moveTo(0);
+  // while (Big_Motor->distanceToGo() != 0) {
+  //   Big_Motor->run();
+  // }
 
-  Small_Motor->moveTo(0);  // Set the stepper to the new position
-  // Perform the steps
-  while (Small_Motor->distanceToGo() != 0) {
-    Small_Motor->run();
-  }
-  Serial.println("Motors closed. Returning to Setup.");
+  // Small_Motor->moveTo(0);  // Set the stepper to the new position
+  // // Perform the steps
+  // while (Small_Motor->distanceToGo() != 0) {
+  //   Small_Motor->run();
+  // }
+  // Serial.println("Motors closed. Returning to Setup.");
 
-  esp_restart();  // Same as pressing EN or power cycling
+  // esp_restart();  // Same as pressing EN or power cycling
 }
 
 

@@ -19,6 +19,9 @@
 #include <string>
 // End string parsing libraries
 
+
+
+
 //----------------------------------------------------------
 // (end new1) Motor Setup Stuff
 //----------------------------------------------------------
@@ -90,18 +93,6 @@ void loop() {
 
   String dataPrint = String(millis()) + " , " + String(currentBigFlowRate, 6) + " , " + String(currentSmallFlowRate, 6) + " , " + String(total_flow, 6);
   Serial.println(dataPrint);
-
-  // Serial.print(millis()); // NEW1, so the time printed reflects time the flow is checked against
-  // Serial.print(" , ");
-  // Serial.print(currentBigFlowRate, 3); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(currentSmallFlowRate, 3); // time for csv
-  // Serial.print(" , ");
-  // Serial.print(total_flow, 3); // time for csv
-  // Serial.println("");
-  // delay(48);
-
-  // delayMicroseconds(100); // Just to give it some rest
 
 
 }
@@ -282,46 +273,6 @@ float readAndAverageFlowSens_Small(int numReadings1) {
 //   Serial.flush();
 
    
-//   // Serial.print("Raw Sample Period:        ");
-//   // Serial.print(total_delay_us);
-//   // Serial.println(" microseconds");
-
-//   // Serial.print("Raw Sample Rate:          ");
-//   // Serial.print(1 / (total_delay_us*(10^-6)));
-//   // Serial.println(" hz");
-
-//   // Serial.print("Rolling Avg:              ");
-//   // Serial.print(rolling_avg);
-//   // Serial.println("");
-
-//   // Serial.print("Effective Sample Period:  ");
-//   // Serial.print(rolling_avg * total_delay_us);
-//   // Serial.println("");
-
-//   // Serial.print("Effective Sample Rate:  ");
-//   // Serial.print(1 / (rolling_avg * (total_delay_us*(10^-6))));
-//   // Serial.println("");
-
-
-  
-//   // Initialize the default I2C bus for Flowsens_Big
-//   Wire.begin();
-
-//   // Initialize the secondary I2C bus for Flowsens_Small
-//   Wire1.begin(SDA_2, SCL_2);
-
-
-//   Wire.beginTransmission(byte(0x40));
-//   Wire.write(byte(0x10)); // Example command to Flowsens_Big
-//   Wire.write(byte(0x00)); // Example data to Flowsens_Big
-//   Wire.endTransmission();
-
-//   Wire1.beginTransmission(byte(0x40));
-//   Wire1.write(byte(0x10)); // Example command to Flowsens_Small
-//   Wire1.write(byte(0x00)); // Example data to Flowsens_Small
-//   Wire1.endTransmission();
-
-
 // }
 
 // int firstLoopFlag = 0;
