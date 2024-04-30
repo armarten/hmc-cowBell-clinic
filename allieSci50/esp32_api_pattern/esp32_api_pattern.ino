@@ -24,7 +24,8 @@ int thermPin = 34;
 int buttonPin = 25;  // internal pullup, ADC_2,
 int ledPinG = 32;
 int ledPinR = 33;
-int ledPinW = 26;
+int ledPinW = 27;
+String wasHereWall = "Allie WAS HERE!!!";
 
 
 // Output variable initialization
@@ -50,6 +51,7 @@ const char* PARAM_INPUT_1 = "ctl-power";
 const char* PARAM_INPUT_2 = "read-data";
 const char* PARAM_INPUT_3 = "ctl-blinks";
 const char* PARAM_INPUT_4 = "ctl-lightswitch";
+const char* PARAM_INPUT_5 = "washere";
 
 
 void notFound(AsyncWebServerRequest* request) {
@@ -74,10 +76,11 @@ void ledPattern(int buttonPressed1) {
   int j = 0;
   // int blinks = 5;
   int delayms;
+  int blinks = 1;
   // int shrink;
 
   if (buttonPressed1 == 1) {
-    delayms = 100;
+    delayms = 3000;
     // shrink = 250;
   } else {
     delayms = 500;
@@ -86,20 +89,23 @@ void ledPattern(int buttonPressed1) {
   while (i < blinks) {
     whiteLED(lightswitch);
     digitalWrite(ledPin, HIGH);
-    while(j < 100) {
-      delay(delayms/100);
+    // Serial.println("green led on");
+    while (j < 100) {
+      delay(delayms / 100);
       whiteLED(lightswitch);
-      j = j+1;
+      j++;
     }
     j = 0;
     // delay(delayms);
     digitalWrite(ledPin, LOW);
-    while(j < 100) {
-      delay(delayms/100);
-      whiteLED(lightswitch);
-      j = j+1;
-    }
+    // Serial.println("green led off");
+    // while (j < 100) {
+    delay(delayms / 100);
+      // whiteLED(lightswitch);
+      // j++;
+    // }
     i++;
+    // Serial.println(i);
   }
   // delay(delayms + 1000);
 }
@@ -131,15 +137,16 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(ip);
   delay(10000);
-  
+
 
   // Send web page with input fields to client
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     String params_all_text;
 
-    params_all_text = String(PARAM_INPUT_1) + "\n" + String(PARAM_INPUT_2) + "\n" + String(PARAM_INPUT_3);
+    // params_all_text = String(PARAM_INPUT_1) + "\n" + String(PARAM_INPUT_2) + "\n" + String(PARAM_INPUT_3);
+    String home_page_text = "Welcome to Allie's Sci50 project! <br> <br> ------------------------- <br> <br> To turn the white LED on and off, add the following text after the url: <br> <br> <code>/get?ctl-lightswitch=</code> (and then either) <code>on</code> (or) <code>off</code>. <br> <br> ------------------------- <br> <br> To add your name to the washere wall, go to <code>/get?washere=[yourname]</code>. <br> To see the washere wall, go to <code>/get?washere</code>.";
 
-    request->send_P(200, "text/plain", params_all_text.c_str());
+    request->send_P(200, "text/html", home_page_text.c_str());
   });
 
   // text/plain: Used for plain text content. This could be used for simple textual responses that are not HTML formatted.
@@ -175,19 +182,16 @@ void setup() {
         runningFlag = 1;
         Serial.println("Running Flag ON");
         request->send_P(200, "text/plain", "SUCCESS: Power ON");
-      } 
-      else if (inputMessage == "off") {
+      } else if (inputMessage == "off") {
         runningFlag = 0;
         Serial.println("Running Flag OFF");
 
         request->send_P(200, "text/plain", "SUCCESS: Power OFF");
-      } 
-      else if (inputMessage == "reset") {
+      } else if (inputMessage == "reset") {
         Serial.println("Resetting.");
         request->send_P(200, "text/plain", "SUCCESS: Resetting");
         esp_restart();
-      }
-      else {
+      } else {
         request->send_P(200, "text/plain", "Invalid Power Command");
       }
     }
@@ -227,24 +231,41 @@ void setup() {
       String pinOutputString = setString + inputMessage + modeString;
 
       request->send_P(200, "text/plain", pinOutputString.c_str());
-
     }
 
 
     if (request->hasParam(PARAM_INPUT_4)) {
+      Serial.println("Lighswitch turned on!");
       inputMessage = request->getParam(PARAM_INPUT_4)->value();
       inputParam = PARAM_INPUT_4;
       // inputNum = inputMessage.toInt();
       if (inputMessage == "on") {
         lightswitch = 1;
-      }
-      else if (inputMessage == "off") {
+      } else if (inputMessage == "off") {
         lightswitch = 0;
       }
       String setString = "The white LED is ";
       String pinOutputString = setString + inputMessage;
       Serial.println(pinOutputString);
       request->send_P(200, "text/plain", pinOutputString.c_str());
+
+    }
+
+
+    if (request->hasParam(PARAM_INPUT_5)) {
+      Serial.println("Someone was here!");
+      inputMessage = request->getParam(PARAM_INPUT_5)->value();
+      inputParam = PARAM_INPUT_5;
+      if (inputMessage != NULL) {
+        wasHereWall = String(inputMessage) + String(" WAS HERE!!!") + String("<br>") + String(wasHereWall);
+      }
+      // inputNum = inputMessage.toInt();
+      // String wasHere = " WAS HERE!!!";
+      String bold = "<b>";
+      String boldEnd = "</b>";
+      String nameOutputString = bold + wasHereWall + boldEnd;
+      Serial.println(nameOutputString);
+      request->send_P(200, "text/html", nameOutputString.c_str());
 
     }
 
@@ -281,7 +302,6 @@ void loop() {
     Serial.println(runningFlag);
     whiteLED(lightswitch);
     delay(100);
-
   }
 
 
@@ -290,8 +310,6 @@ void loop() {
     Serial.println(blinks);
     whiteLED(lightswitch);
     delay(100);
-
-
   }
   whiteLED(lightswitch);
 
@@ -301,17 +319,18 @@ void loop() {
 
   digitalWrite(ledPinR, HIGH);
 
+  Serial.println("Reading Button!");
+
   while (j < 30) {
     whiteLED(lightswitch);
     buttonState = readButton();
-    j = j+1;
+    j = j + 1;
     if (buttonState == 0) {
       break;
     }
     delay(100);
-
   }
-  
+
   whiteLED(lightswitch);
   digitalWrite(ledPinR, LOW);
   delay(100);
@@ -326,7 +345,8 @@ void loop() {
   Serial.println(therm);
   // dtostrf(therm, 8, 3, fbuff);
 
-
+  String blinkText = String("Blinking green LED ") + String(blinks) + String(" times!");
+  Serial.println(blinkText);
   ledPattern(buttonPressed);
 
   delay(100);
@@ -362,4 +382,3 @@ void loop() {
 //   }
 //   // delay(delayms + 1000);
 // }
-

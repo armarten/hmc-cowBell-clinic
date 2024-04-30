@@ -36,4 +36,28 @@ void loop() {
   }
   delay(100);
 
+  int i = 0;
+  int j = 0;
+  int blinks = 5;
+  int delayms = 500;
+  while (i < blinks) {
+    // whiteLED(lightswitch);
+    digitalWrite(32, HIGH);
+    Serial.println("green led on");
+    while (j < 100) {
+      delay(delayms / 100);
+      // whiteLED(lightswitch);
+      j++;
+    }
+    j = 0;
+    // delay(delayms);
+    digitalWrite(32, LOW);
+    Serial.println("green led off");
+    while (j < 100) {
+      delay(delayms / 100);
+      // whiteLED(lightswitch);
+      j++;
+    }
+    i++;
+  }
 }

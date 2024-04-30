@@ -57,7 +57,7 @@ figure(73)
 plot(Tali.mflow)
 hold on;
 plot(Tesp.total)
-yline([0.0275, 0.275, 2.75, 27.5 275])
+yline([0.00275, 0.0275, 0.275, 2.75, 27.5 275])
 hold off;
 legend("Tali","Tesp")
 rows_0_00275 = [5596:7578];
@@ -79,9 +79,9 @@ table_50 = Tali(rows_50,:);
 table_100 = Tali(rows_100,:);
 table_275 = Tali(rows_275,:);
 
-tab_struct = struct('table', {table_0_0275, table_0_275, table_2_75, table_27_5, table_275});
+tab_struct = struct('table', {table_0_00275, table_0_0275, table_0_275, table_2_75, table_27_5, table_275});
 
-setpoints = [0.0275, 0.275, 2.75, 27.5, 275];
+setpoints = [0.00275 0.0275, 0.275, 2.75, 27.5, 275];
 % rows_50 = [1587:8063];
 % rows_100  = [8636:15178];
 % rows_150   = [15996:22673];
@@ -228,7 +228,7 @@ function plots(T, setpoints, runningErrs, instErrs, minErrs, maxErrs)
     ylabel("Error in Actual Emission")
     yticks("auto")
     set(gca,'fontsize', 20) 
-    title(["Error of Custom Mass Flow Controller", "Across 4 Orders of Magnitude"],"FontName","Arial","FontSize",30,"FontWeight","normal")
+    title(["Error of Custom Mass Flow Controller", "Across 5 Orders of Magnitude"],"FontName","Arial","FontSize",30,"FontWeight","normal")
     set(gcf,'Position',[100 100 800 600])
     ax1 = gca
     % ax1.TitleHorizontalAlignment = 'left'
