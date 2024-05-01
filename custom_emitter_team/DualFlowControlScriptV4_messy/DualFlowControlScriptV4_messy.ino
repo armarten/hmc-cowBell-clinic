@@ -1,7 +1,6 @@
 // Written for the 2024 Harvey Mudd College CowBell Labs Clinic Project
 // Contributers: Dominick Quaye, Allison Marten
 // Some code written by ChatGPT
-// Last updated 2024-05-01
 
 
 // ------------------------------------------------------------------------------
@@ -24,6 +23,9 @@
 //------------------------------------------------------------------------------
 
 //Code starts here!!
+
+//Rando: #include
+//#include <avr/pgmspace.h>      // For flash storage
 
 //----------------------------------------------------------
 // NEW1 Pattern Input Setup
@@ -82,7 +84,6 @@ bool scriptRunning = false;  // Flag to indicate whether the script is running
 // --------------------------------------------------------
 //Flow Meter Read Setup
 //----------------------------------------------------------
-
 #include <Wire.h>
 #define SDA_2 25  // Secondary I2C Bus
 #define SCL_2 26  // Secondary I2C Bus
@@ -93,8 +94,12 @@ bool scriptRunning = false;  // Flag to indicate whether the script is running
 
 // TBD
 
-//----------------------------------------------------------
-
+// ----------------------------------------------------------
+// P control Parameter Setup
+// ----------------------------------------------------------
+// Proportional Gain
+// float KpS = 600; // This is my guess based on 45 PSI input
+// float KpB = 52;
 float bigMotorCutoff = 25.0;  // SLPM, Below this, the big valve won't engage.
 //---------------------------------------
 // Desired flow rate
@@ -119,9 +124,9 @@ double KpS1 = 2, KiS = 5, KdS = 1;
 PID PIDsmall(&Input, &Output, &Setpoint, KpS1, KiS, KdS, DIRECT);  // Trying Indirect because controlEffort = -controlEffort
 
 double KpB1 = 2, KiB = 5, KdB = 1;
-PID PIDbig(&Input_big, &Output_big, &Setpoint_big, KpB1, KiB, KdB, DIRECT); // Controller for big valve when above 50slm
+PID PIDbig(&Input_big, &Output_big, &Setpoint_big, KpB1, KiB, KdB, DIRECT);
 
-PID PIDbigsmall(&Input_big, &Output_bigsmall, &Setpoint_big, KpB1, KiB, KdB, DIRECT); // Controller for big valve when below 50 slm
+PID PIDbigsmall(&Input_big, &Output_bigsmall, &Setpoint_big, KpB1, KiB, KdB, DIRECT);
 
 // http://brettbeauregard.com/blog/2011/04/improving-the-beginners-pid-direction/
 
@@ -139,11 +144,10 @@ void setup() {
   pinMode(0, OUTPUT);   // Small_Motor 1 Dir pin
   pinMode(2, OUTPUT);   // Big_Motor 2 Step pin
   pinMode(15, OUTPUT);  // Big_Motor 2 Dir pin
-  pinMode(monitorPin, OUTPUT); // Debugging pin, ignore
+  pinMode(monitorPin, OUTPUT);
   Serial.begin(9600);
   Serial.flush();
   Serial.println("Code start.");
-
   // --------------------------------------------------------
   // Motor Calibration, comment out this sec below to skip
   // --------------------------------------------------------
@@ -168,18 +172,14 @@ void setup() {
   // Motor setup (non-Calibration)
 
   Big_Motor = new AccelStepper(motorInterfaceType, 2, 15);
-
-  // For all the Maxspeed and Acceleration settings, you can increase to get a better rise time, but watch current consumption and voltage sag that moving faster causes to ensure supply stays above 12v
-
   Big_Motor->setMaxSpeed(10000);     // Maximum steps per second
   Big_Motor->setAcceleration(3000);  // Steps per second squared
   Big_Motor->setCurrentPosition(0);
 
   Small_Motor = new AccelStepper(motorInterfaceType, 4, 0);
-  Small_Motor->setMaxSpeed(10000);     // Maximum steps per second, 
-
+  Small_Motor->setMaxSpeed(10000);     // Maximum steps per second
   Small_Motor->setAcceleration(3000);  // Steps per second squared
-  Small_Motor->setCurrentPosition(0);  // Steps per second squared
+  Small_Motor->setCurrentPosition(0);
 
   // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -209,6 +209,7 @@ void setup() {
   // End of Setup!
   //
   // ----------------------------------------------------------
+  // Serial.println("Mass Flow Controller Ready, Starting Control Loop in 1 Second...");
   delay(1000);
   //-----------------------------------------------------------
   Serial.println("***");  // Filler lines for for MATLAB csv read code
@@ -221,6 +222,7 @@ void setup() {
   waitForOnCommand();
 
   int firstLoopFlag = 0;
+  // std::string desiredFlowPatternString;
 
   // ----------------------------------------------------------
   // PID
@@ -238,9 +240,6 @@ void setup() {
   PIDbig.SetMode(AUTOMATIC);
   PIDbigsmall.SetMode(AUTOMATIC);
 
-  //**************************************
-  // This section below lets you put in custom PID values at the start of each run in the serial monitor, mant for faster tuning than changing the code, uncomment this to enable!!
-  //**************************************
 
   // Serial.println("INPUT GAINS FOR SMALL VALVE");
   // Serial.println("");
@@ -273,18 +272,9 @@ void setup() {
   // KdB = getGainConst();
   // Serial.println("");
 
-//**************************************
-
-// Below are the PID values we found to work, feel free to change for tuning! If you want to tune quickly, comment these out and uncomment block above so you can input them in serial monitor 
-
-//**************************************
-
-// Set PID vals for Big valve
   KpB1 = 60;
   KiB = 0.002;
   KdB = 2;
-
-// Set PID vals for Small valve
 
   KpS1 = 900;
   KiS = 0.5;
@@ -297,12 +287,17 @@ void setup() {
   PIDbig.SetTunings(KpB1, KiB, KdB);
   PIDbig.SetOutputLimits(-10000000, 10000000);
 
-// Line below sets PID vals for Big valve at flows less than 50, very finicky so its hardcoded but feel free to mess with it
   PIDbigsmall.SetTunings(2.0, 0, 0);
   PIDbigsmall.SetOutputLimits(-10000000, 10000000);
 }
 
+// Serial.println("Setup Done, starting Loop");
+
+
+
 void loop() {
+  // Serial.print("firstLoopFlag: ");
+  // Serial.println(firstLoopFlag);
 
   // ----------------------------------------------------------
   // NEW1 Checking pattern array to get current flow rate
@@ -321,6 +316,8 @@ void loop() {
 
   // Check flow pattern and get current flow rate
   float time_check_ms = millis() - time_start_ms;
+
+  // Serial.println("desiredFlowPattern:");
   float oldDesiredFlowRate = desiredFlowRate;
 
   desiredFlowRate = currentDesiredFlowRate(desiredFlowPattern, time_check_ms);
@@ -380,6 +377,10 @@ void loop() {
 
   float total_flow = currentSmallFlowRate + currentBigFlowRate;
 
+  // float error = desiredFlowRate - (total_flow);  // Calculate error
+
+  // long controlEffort = long(KpS * error);   // Calculate control effort
+
   // ----------------------------------------------------------
   // PID
   // ----------------------------------------------------------
@@ -387,9 +388,11 @@ void loop() {
   Setpoint = desiredFlowRate - currentBigFlowRate;
 
   PIDsmall.Compute();
+  // controlEffort = -controlEffort;
 
   long controlEffort = -Output;
-  // Invrsion above due to motor direction
+
+
 
   long newgoalposition = Small_Motor->currentPosition() + controlEffort;
   long currpos = Small_Motor->currentPosition();
@@ -402,7 +405,7 @@ void loop() {
   Serial.println(dataPrint);
 
   // Future crash Check
-  if (newgoalposition > 0 || newgoalposition < ( -1 * (3200 * 10) ) ) {
+  if (newgoalposition > 0 || newgoalposition < -64000) {
 
     Serial.println(newgoalposition);
     Serial.println("Crash Course detected for small valve!...Motor stopped, Please restart program!");
@@ -423,7 +426,7 @@ void loop() {
 
 
 // ----------------------------------------------------------
-// PID-Control The Big Motor!!!
+// P-Control The Big Motor!!!
 // ----------------------------------------------------------
 
 void controlBigMotor(float targetFlow) {
@@ -439,20 +442,29 @@ void controlBigMotor(float targetFlow) {
     Serial.println("GOAL FLOW RATE TOO HIGH, FLOW MUST BE <= 275 SLPM");
     restartRun();
   }
+  // bigTargetFlow = constrain(targetFlow - 10, 0, 250);
 
+  //if (targetFlow == 250) {targetFlow = 277.778;} // *****So the big motor doesn't try to go above 250 SLPM
   float currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
-
+  // Input_big = currentBigFlowRateForMotor;
+  // Setpoint_big = targetFlow;
+  // // float currentBigFlowRate=0;
   float error = bigTargetFlow - currentBigFlowRateForMotor;  // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
 
+  // PIDbig.Compute();
+
+  // long controlEffort = -Output_big;
+
+  // long controlEffort = -Output;
   long controlEffort;
   long newPosition;
 
   while (abs(error) > tolerance * bigTargetFlow) {
-
     currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
     Input_big = currentBigFlowRateForMotor;
     Setpoint_big = bigTargetFlow;
-
+    // float currentBigFlowRate=0;
+    // float error = targetFlow - currentBigFlowRateForMotor; // **** POSSIBLE ISSUE WHEN CHANGING FLOW RATES
     if (targetFlow <= 50) {
       PIDbigsmall.Compute();
       controlEffort = -Output_bigsmall;
@@ -461,10 +473,27 @@ void controlBigMotor(float targetFlow) {
       controlEffort = -Output_big;
     }
 
+
+    // currentBigFlowRateForMotor = readAndAverageFlowSens_Big();
+    // error = targetFlow - currentBigFlowRateForMotor;
+    // controlEffort = long(KpB * error);
+    // controlEffort = -controlEffort;
     newPosition = Big_Motor->currentPosition() + controlEffort;
 
-    // Future Crash check
-    if (newPosition > 0 || newPosition < ( -1 * (3200 * 6) ) ) {
+    // Serial.print("bigTargetFlow = ");
+    // Serial.println(bigTargetFlow);
+    // Serial.print("currentBigFlowRateForMotor = ");
+    // Serial.println(currentBigFlowRateForMotor);
+    // Serial.print("error = ");
+    // Serial.println(error);
+    // Serial.print("controlEffort = ");
+    // Serial.println(controlEffort);
+    // Serial.print("newPosition = ");
+    // Serial.println(newPosition);
+    // Serial.println(currentBigFlowRateForMotor);
+
+    // Crash check
+    if (newPosition > 0 || newPosition < -60000) {
       Serial.println(newPosition);
       Serial.println("Crash Course detected for big valve!...Motor stopped.");
       restartRun();
@@ -479,6 +508,10 @@ void controlBigMotor(float targetFlow) {
     currentBigFlowRateForMotor = readAndAverageFlowSens_Big(numReadings1);
     error = bigTargetFlow - currentBigFlowRateForMotor;
 
+    // Serial.print("new currentBigFlowRateForMotor = ");
+    // Serial.println(currentBigFlowRateForMotor);
+    // Serial.print("new error = ");
+    // Serial.println(error);
   }
 }
 
@@ -561,6 +594,7 @@ void performMotorOperation(int stepPin, int dirPin, float threshold) {
     if (valueCount == 100) {
       float mean = calculateMean(voltageValues, 100);
       float standardDeviation = calculateStandardDeviation(voltageValues, 100, mean);
+      // Serial.println(standardDeviation);
 
       // Update circular buffer with the latest standard deviation value
       stdDevHistory[stdDevHistoryIndex] = standardDeviation;
@@ -621,6 +655,7 @@ void waitForOnCommand() {
   String input = Serial.readStringUntil('\n');  // Read input
   if (input == "on") {
     Serial.println("Script started.");
+    // scriptRunning = true;
     // Add your script start code here
   } else {
     Serial.println("Invalid command. Please type 'on' to start the script.");
@@ -650,7 +685,7 @@ std::string getPatternFlowRate() {
   std::string desiredFlowPattern = inputString.c_str();
   if (desiredFlowPattern[0] == '[') {
     Serial.print("You inputted the following flow pattern: ");
-    Serial.println(desiredFlowPattern.c_str());  // Convert to const char* for 
+    Serial.println(desiredFlowPattern.c_str());  // Convert to const char* for println    scriptRunning = true;
     // Add your script start code here
   } else {
     Serial.println("Your input was not accepted. Please enter a string in the provided form.");
@@ -710,10 +745,13 @@ float currentDesiredFlowRate(std::vector<std::vector<float>> flowPattern, int cu
   float flowEndTime;
   int numRows = flowPattern.size();
   for (int i = 0; i <= numRows - 1; ++i) {
-
+    // Serial.print("check time: ");
+    // Serial.println(flowPattern[i][1]);
     float flowEndTime = flowStartTime + flowPattern[i][1];
     if (current_time_ms >= flowStartTime && current_time_ms <= flowEndTime) {
       desiredFlowRate = flowPattern[i][0];
+      // Stop_Flag = 0;
+      // std::cout << "desiredFlowRate: " << desiredFlowRate << "; time: " << current_time_ms << std::endl;
       return desiredFlowRate;
     } else {
       flowStartTime = flowEndTime;
@@ -771,7 +809,14 @@ double getGainConst() {
     ;                                           // Wait for input
   String input = Serial.readStringUntil('\n');  // Read input
   double K_new = atof(input.c_str());
+  // if (liveDesiredFlowRate > 0.0) {
   Serial.print("New constant:");
   Serial.println(K_new);
+  //scriptRunning = true;
+  // Add your script start code here
+  // } else {
+  //   Serial.println("Please type a number greater than zero to start the script.");
+  //   waitForOnCommand(); // Call the function recursively until valid input is received
+  // }
   return K_new;
 }

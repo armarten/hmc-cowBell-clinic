@@ -116,9 +116,9 @@ for file_index = (0:(length(all_file_names)/2)-1)
 
     end
 
-
-    % plots(ali_filename, Tali, Tesp, file_index+1, sensor, comp);
-
+    if file_index+1 == 2
+        plots(ali_filename, Tali, Tesp, file_index+1, sensor, comp);
+    end
 
 end
 
@@ -140,8 +140,8 @@ small_sensor_ch4_esp                    = small_sensor_ch4_esp(sortIndex_sc,:);
 
 
 
-% plots('concat_air', big_sensor_air_alicat, big_sensor_air_esp, 7, "SFM3300 (Large)", "Air");
-% plots('concat_ch4', big_sensor_ch4_alicat, big_sensor_ch4_esp, 8, "SFM3300 (Large)", "CH4");
+plots('concat_air', big_sensor_air_alicat, big_sensor_air_esp, 7, "SFM3300 (Large)", "Air");
+plots('concat_ch4', big_sensor_ch4_alicat, big_sensor_ch4_esp, 8, "SFM3300 (Large)", "CH4");
 %% Big sensor read vs actual
 
 yba = big_sensor_air_alicat.mflow;
@@ -175,31 +175,10 @@ plot([0 max(max(xba), max(xbc))],[0 max(max(xba), max(xbc))],'--k','LineWidth',1
 hold off;
 ylabel("Reference Sensor Reading (SLPM)")
 xlabel("Sensirion SFM3300 (Large Sensor) Mass Flow Reading (SLPM)")
-title(["Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
+title(["Reference vs Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
 subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
-legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","y = x", "Location", "NorthWest");
-
-
-
-% %% Big Sensor Compare CH4 and Air
-% 
-% lower_max_big = min(max(xba), max(xbc));
-% poly_big_x = linspace(1, round(lower_max_big), 500);
-% poly_big_air = polyval(Fitba, poly_big_x);
-% poly_big_ch4 = polyval(Fitbc, poly_big_x);
-% diff_poly_big = (poly_big_ch4 - poly_big_air);
-% diff_norm_poly_big = diff_poly_big ./ poly_big_air;
-% 
-% % div_poly_big = poly_big_ch4 ./ poly_big_air;
-% 
-% figure(30)
-% plot(poly_big_x, diff_poly_big)
-% title("CH4 - Air Difference Big Sensor")
-% figure(40)
-% plot(poly_big_x, diff_norm_poly_big)
-% title("(CH4-Air)/Air Big Sensor")
-
-% legend("CH4 -  Air", "CH4 ./ Air")
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
+grid on;
 
 %% Big sensor error vs actual
 
@@ -222,16 +201,6 @@ xbc(TFrmbc,:) = [];
 scatter(xba, yba, sz);
 hold on;
 scatter(xbc, ybc, sz);
-% 
-% polys = (4:9);
-% for n = polys
-%     Fitba = polyfit(xba, yba, 9); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-%     Fitbc = polyfit(xbc, ybc, n); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-% 
-%     plot(xbc, polyval(Fitbc,xbc),"LineWidth",lw)
-% end
-%     plot(xba, polyval(Fitba,xba),"LineWidth",lw)
-
 
 Fitba = polyfit(xba, yba, 9); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 Fitbc = polyfit(xbc, ybc, 8); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
@@ -249,7 +218,7 @@ title(["Error in Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5% Met
 subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
 ylabel("% Error Between Sensirion and Reference Reading");
 xlabel("Sensirion SFM3300 (Large Sensor) Mass Flow Reading (SLPM)")
-legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","Error = 0", "Location", "NorthWest");
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","Error = 0", "Location", "NorthWest");
 
 
 
@@ -285,13 +254,15 @@ plot(xsc, polyval(Fitbc,xsc),'-','color',"#EDB120", "LineWidth",lw)
 
 plot([0 max(max(xsa), max(xsc))],[0 max(max(xsa), max(xsc))],'--k','LineWidth',1)
 hold off;
+ylabel("Reference Sensor Reading (SLPM)")
+xlabel("Sensirion SFM3400 (Small Sensor) Mass Flow Reading (SLPM)")
+title(["Reference vs Sensirion SFM3400 (Small Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
+subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
+grid on;
 
-
-ylabel("Alicat Reading (SLPM)")
-xlabel("SFM3300 Reading (SLPM)")
-title("Sensirion SFM3400 (Small) Reading vs Alicat Reading")
 % legend("Air", "CH_4", "airfit","ch4fit","y=x")
-legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","y = x", "Location", "NorthWest");
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
 
 
 %% Small sensor error vs actual
@@ -331,12 +302,10 @@ title(["Error in Sensirion SFM3400 (Small Sensor) Reading" "for Air and 2.5% Met
 subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
 ylabel("% Error Between Sensirion and Reference Reading");
 xlabel("Sensirion SFM3400 (Small Sensor) Mass Flow Reading (SLPM)")
-legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit", "Error = 0", "Location", "NorthWest");
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit", "Error = 0", "Location", "NorthWest");
 
 
 %% 
-
-
 
 
 function plots(filename, Tali, Tesp, fignum, sensor, comp)
@@ -345,48 +314,55 @@ function plots(filename, Tali, Tesp, fignum, sensor, comp)
     hold on;
     plot(Tali.mflow);
     hold off;
-    title([filename sensor comp "Flow vs Time"])
-    ylabel("Mass Flow Rate (SLPM)");
-    xlabel("Samples");
-    legend("ESP", "Ali")
-
-    x33 = Tali.mflow;
-    y33 = (Tesp.mflow-Tali.mflow)./Tali.mflow*100;
-
-    figure(80+fignum)
-    scatter(x33, y33);
-    hold on;
-    Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-    plot(x33, polyval(Fit33,x33),"LineWidth",lw)
-    % yline([10 -10],"--");
-    % ylim([-25 25]);
-    % xlim([0 30])
-    ylim([-15 20]);
-
-    hold off;
+    title("Flow vs Time for Sensirion SFM3300 (Large) Sensor", "FontSize",15)
+    ylabel("Measured Mass Flow Rate (SLPM)");
+    xlabel("Sample");
+    legend("SFM3300", "Alicat (Reference)","Location","NorthWest")
     grid on;
     grid minor;
-    title([filename sensor comp "Error of SFM3300 vs True Flow Rate"])
-    ylabel("% Error")
-    xlabel("Alicat Mass Flow Reading (SLPM)")
-    
     % 
-    % figure(90+fignum)
-    % scatter(x33, y33 ./ 100 .* Tali.mflow);
+    % x33 = Tali.mflow;
+    % y33 = (Tesp.mflow-Tali.mflow)./Tali.mflow*100;
+    % 
+    % figure(80+fignum)
+    % scatter(x33, y33);
     % hold on;
-    % Fit33 = polyfit(x33, y33 ./ 100 .* Tali.mflow, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-    % plot(x33, polyval(Fit33,x33),"LineWidth",lw)
-    % % yline([10 -10],"--");
-    % % xlim([0 30])
+    % Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
+    % plot(x33, polyval(Fit33,x33),"LineWidth",3)
+    % 
+    % 
+    % ylim([-15 20]);
+    % 
     % hold off;
     % grid on;
     % grid minor;
-    % title("Error of SFM3300 vs True Flow Rate")
-    % ylabel("Offset Error (SLPM)")
+    % title([filename sensor comp "Error of SFM3300 vs True Flow Rate"])
+    % ylabel("% Error")
     % xlabel("Alicat Mass Flow Reading (SLPM)")
+    % 
 
 
 end
 
 
 
+
+
+
+figlist = [20 21 200 201 12];
+save_plots(figlist, "sensirion_cal")
+
+
+
+function save_plots(figlist, file_name)
+    % Takes the figures listed in figlist and saves them as .png and .fig
+    % to the folder "arduino_plot_figs"
+    if isempty(figlist)
+    else
+        for fig = figlist
+            fig_file_name = append('arduino_plot_figs/sweep_final_report_figs/',file_name,"_fig","_",int2str(fig));
+            saveas(fig, fig_file_name, 'png')
+            saveas(fig, fig_file_name, 'fig')
+        end  
+    end
+end
