@@ -1,3 +1,5 @@
+%% Making plots for the final report
+
 %% Get data to files
 close all hidden;
 clear;
@@ -320,37 +322,13 @@ function plots(filename, Tali, Tesp, fignum, sensor, comp)
     legend("SFM3300", "Alicat (Reference)","Location","NorthWest")
     grid on;
     grid minor;
-    % 
-    % x33 = Tali.mflow;
-    % y33 = (Tesp.mflow-Tali.mflow)./Tali.mflow*100;
-    % 
-    % figure(80+fignum)
-    % scatter(x33, y33);
-    % hold on;
-    % Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-    % plot(x33, polyval(Fit33,x33),"LineWidth",3)
-    % 
-    % 
-    % ylim([-15 20]);
-    % 
-    % hold off;
-    % grid on;
-    % grid minor;
-    % title([filename sensor comp "Error of SFM3300 vs True Flow Rate"])
-    % ylabel("% Error")
-    % xlabel("Alicat Mass Flow Reading (SLPM)")
-    % 
-
 
 end
 
 
 
-
-
-
-figlist = [20 21 200 201 12];
-save_plots(figlist, "sensirion_cal")
+% figlist = [20 21 200 201 12];
+% save_plots(figlist, "sensirion_cal")
 
 
 
