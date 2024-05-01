@@ -2,6 +2,8 @@
 close all hidden;
 clear;
 
+sz = 10;
+lw = 2;
 samp_per_s  = 50E-3;
 samp_per_ms = 50;
 concatFlag = 0;
@@ -115,7 +117,7 @@ for file_index = (0:(length(all_file_names)/2)-1)
     end
 
 
-    plots(ali_filename, Tali, Tesp, file_index+1, sensor, comp);
+    % plots(ali_filename, Tali, Tesp, file_index+1, sensor, comp);
 
 
 end
@@ -157,34 +159,25 @@ xbc(TFrmbc,:) = [];
 
 figure(20)
 
-scatter(xba, yba)
+scatter(xba, yba, sz, "MarkerEdgeColor", "#0072BD")
 hold on;
 
-scatter(xbc, ybc)
+scatter(xbc, ybc, sz, "MarkerEdgeColor", "#D95319")
 
-% polys = (4:7);
-% for n = polys
-%     % Fitba = polyfit(xba, yba, 6); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-%     Fitbc = polyfit(xbc, ybc, n); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-% 
-%     % plot(xba, polyval(Fitba,xba),"LineWidth",3)
-%     plot(xbc, polyval(Fitbc,xbc),"LineWidth",3)
-% 
-% end
 Fitba = polyfit(xba, yba, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(xba, polyval(Fitba,xba),"LineWidth",3)
+plot(xba, polyval(Fitba,xba),'-','color',"#4DBEEE","LineWidth",lw)
 
 Fitbc = polyfit(xbc, ybc, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(xbc, polyval(Fitbc,xbc),"LineWidth",3)
+plot(xbc, polyval(Fitbc,xbc),'-','color',"#EDB120", "LineWidth",lw)
 
 
-plot(xlim,xlim,'-b','LineWidth',2)
+plot([0 max(max(xba), max(xbc))],[0 max(max(xba), max(xbc))],'--k','LineWidth',1)
 hold off;
-ylabel("Alicat Reading (SLPM)")
-xlabel("SFM3300 Reading (SLPM)")
-title("Sensirion SFM3300 (Large) Reading vs Alicat Reading")
-% legend("Air", "CH_4", "airfit","ch4fit","y=x")
-legend(["air" "ch4" "airpoly" "ch4poly" "y=x"])
+ylabel("Reference Sensor Reading (SLPM)")
+xlabel("Sensirion SFM3300 (Large Sensor) Mass Flow Reading (SLPM)")
+title(["Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
+subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","y = x", "Location", "NorthWest");
 
 
 
@@ -226,35 +219,37 @@ ybc(TFrmbc,:) = [];
 xbc(TFrmbc,:) = [];
 
 
-scatter(xba, yba);
+scatter(xba, yba, sz);
 hold on;
-scatter(xbc, ybc);
+scatter(xbc, ybc, sz);
 % 
 % polys = (4:9);
 % for n = polys
 %     Fitba = polyfit(xba, yba, 9); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 %     Fitbc = polyfit(xbc, ybc, n); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 % 
-%     plot(xbc, polyval(Fitbc,xbc),"LineWidth",3)
+%     plot(xbc, polyval(Fitbc,xbc),"LineWidth",lw)
 % end
-%     plot(xba, polyval(Fitba,xba),"LineWidth",3)
+%     plot(xba, polyval(Fitba,xba),"LineWidth",lw)
 
 
 Fitba = polyfit(xba, yba, 9); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 Fitbc = polyfit(xbc, ybc, 8); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 
-plot(xba, polyval(Fitba,xba),"LineWidth",3)
-plot(xbc, polyval(Fitbc,xbc),"LineWidth",3)
-
+plot(xba, polyval(Fitba,xba),"LineWidth",lw)
+plot(xbc, polyval(Fitbc,xbc),"LineWidth",lw)
+yline(0,"--k","LineWidth",1)
 
 hold off;
 grid on;
 grid minor;
 
-title("Air vs Methane Behavior for SFM3300 (Large Sensor)")
-ylabel("% Error in Sensirion Sensor Reading Compared to Alicat Sensor Reading")
-xlabel("Sensirion SFM3300 (Large) Mass Flow Reading (SLPM)")
-legend("Air", "CH4", "Air Polyfit", "CH4 Polyfit");
+
+title(["Error in Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
+subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
+ylabel("% Error Between Sensirion and Reference Reading");
+xlabel("Sensirion SFM3300 (Large Sensor) Mass Flow Reading (SLPM)")
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","Error = 0", "Location", "NorthWest");
 
 
 
@@ -274,28 +269,40 @@ ysc(TFrmbc,:) = [];
 xsc(TFrmbc,:) = [];
 
 
-scatter(xsa, ysa)
+scatter(xsa, ysa, sz, "MarkerEdgeColor", "#0072BD")
 hold on;
 
-scatter(xsc, ysc)
+scatter(xsc, ysc, sz, "MarkerEdgeColor", "#D95319")
 
-% polys = (4:7);
-% for n = polys
-%     % Fitsa = polyfit(xsa, ysa, 6); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-%     Fitsc = polyfit(xsc, ysc, n); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-% 
-%     % plot(xsa, polyval(Fitsa,xsa),"LineWidth",3)
-%     plot(xsc, polyval(Fitsc,xsc),"LineWidth",3)
-% 
-% end
+
 Fitba = polyfit(xsa, ysa, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(xsa, polyval(Fitba,xsa),"LineWidth",3)
+plot(xsa, polyval(Fitba,xsa),'-','color',"#4DBEEE","LineWidth",lw)
 
 Fitbc = polyfit(xsc, ysc, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-plot(xsc, polyval(Fitbc,xsc),"LineWidth",3)
+plot(xsc, polyval(Fitbc,xsc),"LineWidth",lw)
 
 
-plot(xlim,xlim,'-b','LineWidth',2)
+
+
+
+scatter(xba, yba, sz, "MarkerEdgeColor", "#0072BD")
+hold on;
+
+scatter(xbc, ybc, sz, "MarkerEdgeColor", "#D95319")
+
+Fitba = polyfit(xba, yba, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
+plot(xba, polyval(Fitba,xba),'-','color',"#4DBEEE","LineWidth",lw)
+
+Fitbc = polyfit(xbc, ybc, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
+plot(xbc, polyval(Fitbc,xbc),'-','color',"#EDB120", "LineWidth",lw)
+
+
+
+
+
+
+
+plot([0 max(max(xsa), max(xsc))],[0 max(max(xsa), max(xsc))],'--k','LineWidth',1)
 hold off;
 
 
@@ -303,7 +310,7 @@ ylabel("Alicat Reading (SLPM)")
 xlabel("SFM3300 Reading (SLPM)")
 title("Sensirion SFM3400 (Small) Reading vs Alicat Reading")
 % legend("Air", "CH_4", "airfit","ch4fit","y=x")
-legend(["air" "ch4" "airpoly" "ch4poly" "y=x"])
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit","y = x", "Location", "NorthWest");
 
 
 %% Small sensor error vs actual
@@ -321,15 +328,16 @@ xsa(TFrmsa,:) = [];
 ysc(TFrmsc,:) = [];
 xsc(TFrmsc,:) = [];
 
-scatter(xsa, ysa);
+scatter(xsa, ysa, sz);
 hold on;
-scatter(xsc, ysc);
+scatter(xsc, ysc, sz);
 % 
 Fitsa = polyfit(xsa, ysa, 5); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 Fitsc = polyfit(xsc, ysc, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 
-plot(xsa, polyval(Fitsa,xsa),"LineWidth",3)
-plot(xsc, polyval(Fitsc,xsc),"LineWidth",3)
+plot(xsa, polyval(Fitsa,xsa),"LineWidth",lw)
+plot(xsc, polyval(Fitsc,xsc),"LineWidth",lw)
+yline(0,"--k","LineWidth",1)
 
 
 
@@ -338,30 +346,31 @@ hold off;
 grid on;
 grid minor;
 
-title("Air vs Methane Behavior for SFM3400 (Small Sensor)")
-ylabel("% Error in Sensirion Sensor Reading Compared to Alicat Sensor Reading")
-xlabel("Sensirion SFM3400 (Small) Mass Flow Reading (SLPM)")
-legend("Air", "CH4", "Air Polyfit", "CH4 Polyfit");
+title(["Error in Sensirion SFM3400 (Small Sensor) Reading" "for Air and 2.5% Methane, Balance Air"], "FontSize",15)
+subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
+ylabel("% Error Between Sensirion and Reference Reading");
+xlabel("Sensirion SFM3400 (Small Sensor) Mass Flow Reading (SLPM)")
+legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Polyfit", "Error = 0", "Location", "NorthWest");
 
 
 % Plot esp reading vs alicat reading
 % for ch4 and air
 % Then do the diff of those
 
-figure(210)
-lower_max_big = min(max(xba), max(xbc));
-poly_big_x = linspace(1, round(lower_max_big), 500);
-poly_big_air = polyval(Fitba, poly_big_x);
-poly_big_ch4 = polyval(Fitbc, poly_big_x);
-diff_poly_big = poly_big_ch4 - poly_big_air;
-div_poly_big = poly_big_ch4 ./ poly_big_air;
-
-plot(poly_big_x, diff_poly_big)
-hold on;
-% plot(poly_big_x, div_poly_big)
-hold off;
-
-legend("CH4 -  Air", "CH4 ./ Air")
+% figure(210)
+% lower_max_big = min(max(xba), max(xbc));
+% poly_big_x = linspace(1, round(lower_max_big), 500);
+% poly_big_air = polyval(Fitba, poly_big_x);
+% poly_big_ch4 = polyval(Fitbc, poly_big_x);
+% diff_poly_big = poly_big_ch4 - poly_big_air;
+% div_poly_big = poly_big_ch4 ./ poly_big_air;
+% 
+% plot(poly_big_x, diff_poly_big)
+% hold on;
+% % plot(poly_big_x, div_poly_big)
+% hold off;
+% 
+% legend("CH4 -  Air", "CH4 ./ Air")
 
 % Tesp = renamevars(Tesp,["Var1", "Var2", "Var3", "Var4"], ...
 %                 ["time_ms", "flow33","flow34", "total"]);
@@ -389,7 +398,7 @@ function plots(filename, Tali, Tesp, fignum, sensor, comp)
     scatter(x33, y33);
     hold on;
     Fit33 = polyfit(x33, y33, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-    plot(x33, polyval(Fit33,x33),"LineWidth",3)
+    plot(x33, polyval(Fit33,x33),"LineWidth",lw)
     % yline([10 -10],"--");
     % ylim([-25 25]);
     % xlim([0 30])
@@ -407,7 +416,7 @@ function plots(filename, Tali, Tesp, fignum, sensor, comp)
     % scatter(x33, y33 ./ 100 .* Tali.mflow);
     % hold on;
     % Fit33 = polyfit(x33, y33 ./ 100 .* Tali.mflow, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
-    % plot(x33, polyval(Fit33,x33),"LineWidth",3)
+    % plot(x33, polyval(Fit33,x33),"LineWidth",lw)
     % % yline([10 -10],"--");
     % % xlim([0 30])
     % hold off;
@@ -431,9 +440,9 @@ end
 %     % Fitba = polyfit(xsa, ysa, 5); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 %     Fitbc = polyfit(xsc, ysc, 4); % x = x data, y = y data, 1 = order of the polynomial i.e a straight line 
 % 
-%     plot(xsc, polyval(Fitbc,xsc),"LineWidth",3)
+%     plot(xsc, polyval(Fitbc,xsc),"LineWidth",lw)
 % end
-% % plot(xsa, polyval(Fitba,xsa),"LineWidth",3)
+% % plot(xsa, polyval(Fitba,xsa),"LineWidth",lw)
 % 
 % legend(["ch4" polys])
 
@@ -480,5 +489,5 @@ end
 % hold off;
 
 
-% plot(Fitba,"LineWidth",3)
-% plot(Fitbc,"LineWidth",3)
+% plot(Fitba,"LineWidth",lw)
+% plot(Fitbc,"LineWidth",lw)

@@ -1,0 +1,92 @@
+%% Get data from files
+close all hidden;
+clear;
+
+concatFlag = 0;
+samp_per_ms = 50;
+
+
+all_file_names = {'sweep_air_big_alicat20', 'sweep_air_big_esp20', 'sweep_air_big_alicat250', 'sweep_air_big_esp250', 'sweep_air_small_alicat20', 'sweep_air_small_esp', 'sweep_ch4_big_alicat20', 'sweep_ch4_big_esp20', 'sweep_ch4_big_alicat250', 'sweep_ch4_big_esp250', 'sweep_ch4_small_alicat20', 'sweep_ch4_small_esp20'};
+
+for file_index = (0:(length(all_file_names)/2)-1)
+
+    ali_filename = all_file_names{2*file_index+1};
+    esp_filename = all_file_names{2*file_index+2};
+    
+    file_loc_ali = append('arduino_output_save/new_sweep/', ali_filename);
+    file_loc_esp = append('arduino_output_save/new_sweep/', esp_filename);
+    
+    if contains(ali_filename, "ch4") 
+        comp = "CH4";
+    else
+        comp = "Air";
+    end
+    
+    Tali = readtable(file_loc_ali); 
+    Tesp = readtable(file_loc_esp); 
+
+    % Rename Variables
+    Tali = renamevars(Tali,["Var1","Var2","Var3","Var4","Var5","Var6"], ...
+                ["pres","temp","vflow","mflow","stpt","comp"]);
+    Tesp = renamevars(Tesp,["Var1","Var2","Var3"], ...
+                ["time_ms", "sensor", "mflow"]);
+
+
+    % Assuming you have time vectors or can create them based on sampling frequency
+    time_ali = (1:height(Tali)) / 50; % Adjust 50 to actual sample rate if needed
+    time_esp = Tesp.time_ms; % Adjust 50 to actual sample rate if needed
+
+    
+    % Adjust Time in Tali
+    Tali.time_ms = (transpose((0:height(Tali)-1)) .* samp_per_ms) + min(Tesp.time_ms);
+    % Tali.sensor = repmat(Tesp.sensor(1),height(Tali),1);
+    
+    % Extract common columns for concatenation
+    common_columns = intersect(Tali.Properties.VariableNames, Tesp.Properties.VariableNames);
+    
+    % Cross-correlation to find the time offset
+    [c, lags] = xcorr(Tesp.mflow, Tali.mflow, 'coeff');
+    [~, I] = max(abs(c));
+    time_shift = lags(I);
+    
+    % Aligning Tesp based on time shift
+    if time_shift > 0
+        Tesp_aligned = [Tesp(time_shift+1:end, common_columns); array2table(nan(time_shift, length(common_columns)), 'VariableNames', common_columns)];
+    elseif time_shift < 0
+        Tesp_aligned = [array2table(nan(-time_shift, length(common_columns)), 'VariableNames', common_columns); Tesp(1:end+time_shift, common_columns)];
+    else
+        Tesp_aligned = Tesp(:, common_columns);
+    end
+    
+    % Concatenate aligned tables
+    aligned_data = [Tali(:, common_columns), Tesp_aligned];
+
+
+    % Cross-correlation to find the time offset
+    [c, lags] = xcorr(Tesp.mflow, Tali.mflow, 'coeff');
+    [~, I] = max(abs(c));
+    time_shift = lags(I);
+
+    % Adjusting Tesp based on time shift
+    if time_shift > 0
+        Tesp = [Tesp(time_shift+1:end, :); array2table(nan(time_shift, width(Tesp)), 'VariableNames', Tesp.Properties.VariableNames)];
+    elseif time_shift < 0
+        Tesp = [array2table(nan(-time_shift, width(Tesp)), 'VariableNames', Tesp.Properties.VariableNames); Tesp(1:end+time_shift, :)];
+    end
+
+    % Proceed with renaming, removing variables, and your other data processing...
+    Tali = renamevars(Tali, ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6"], ...
+                      ["pres", "temp", "vflow", "mflow", "stpt", "comp"]);
+    Tesp = renamevars(Tesp, ["Var1", "Var2", "Var3"], ...
+                      ["time_ms", "sensor", "mflow"]);
+
+    % Example of using aligned data in plots or further analysis
+    plots(ali_filename, Tali, Tesp, file_index+1, sensor, comp);
+
+end
+
+% Example of a concatenated plot function call (adjust as per your plotting needs)
+plots('concat_air', big_sensor_air_alicat, big_sensor_air_esp, 7, "SFM3300 (Large)", "Air");
+plots('concat_ch4', big_sensor_ch4_alicat, big_sensor_ch4_esp, 8, "SFM3300 (Large)", "CH4");
+
+% Define your plots function as before

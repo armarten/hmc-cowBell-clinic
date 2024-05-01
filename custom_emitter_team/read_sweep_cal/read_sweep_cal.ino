@@ -89,7 +89,7 @@ void loop() {
   // float total_flow= currentSmallFlowRate + currentBigFlowRate;
 
 
-  String dataPrint = String(millis()) + " " + which_sensor + " " + String(flow);
+  String dataPrint = String(millis()) + " " + which_sensor + " " + String(flow, 6);
   Serial.println(dataPrint);
 
   // Serial.print(millis()); // NEW1, so the time printed reflects time the flow is checked against
