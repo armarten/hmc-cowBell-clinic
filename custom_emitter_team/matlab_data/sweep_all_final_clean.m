@@ -181,6 +181,7 @@ title(["Reference vs Sensirion SFM3300 (Large Sensor) Reading" "for Air and 2.5%
 subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
 legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
 grid on;
+grid minor;
 
 %% Big sensor error vs actual
 
@@ -262,6 +263,7 @@ title(["Reference vs Sensirion SFM3400 (Small Sensor) Reading" "for Air and 2.5%
 subtitle("Referenced to Alicat M-Series 20 and 250 SLPM Mass Flow Meters")
 legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
 grid on;
+grid minor;
 
 % legend("Air", "CH_4", "airfit","ch4fit","y=x")
 legend("Air", "2.5% Methane, Bal Air", "Air Polyfit", "2.5% Methane, Bal Air Polyfit","y = x", "Location", "NorthWest");
@@ -316,7 +318,7 @@ function plots(filename, Tali, Tesp, fignum, sensor, comp)
     hold on;
     plot(Tali.mflow);
     hold off;
-    title("Flow vs Time for Sensirion SFM3300 (Large) Sensor", "FontSize",15)
+    title("Mass Flow Rate of Air vs Time for Sensirion SFM3300 (Large) Sensor", "FontSize",15)
     ylabel("Measured Mass Flow Rate (SLPM)");
     xlabel("Sample");
     legend("SFM3300", "Alicat (Reference)","Location","NorthWest")
@@ -327,8 +329,8 @@ end
 
 
 
-% figlist = [20 21 200 201 12];
-% save_plots(figlist, "sensirion_cal")
+figlist = [200 201 20 21 12];
+save_plots(figlist, "sensirion_cal")
 
 
 
